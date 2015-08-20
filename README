@@ -3,12 +3,18 @@
 0. SUMMARY
 ------------------------------------------------------------------------------
 
-Barnyard2 - version 2-1.14
+This is a fork of Barnyard2 - version 2-1.14.
+
+This version has the output module for Hogzilla.
 
 This README contains some quick information about how to set up and
 configure barnyard2 to ensure it works as it should.
 
-Distribution Site:
+Distribution site for the fork version:
+http://www.ids-hogzilla.org
+http://www.github.com/pauloangelo/barnyard2
+
+Distribution site for the original Barnyard2:
 http://www.securixlive.com
 http://www.github.com/firnsy/barnyard2
 

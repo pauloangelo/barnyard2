@@ -1,3 +1,7 @@
+2015-08-XX - Barnyard 2.1.14-hz-0.1.0
+  [*] Additions
+     * spo_hogzilla. New output plugin for HogZilla.
+
 2013-02-15 - Barnyard 2.1.12
   [*] Improvements
      * spo_syslog_full. Added both ascii and base64 support.
