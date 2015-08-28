@@ -41,6 +41,8 @@
  *
  */
 
+ #define HOGZILLA_MAX_NDPI_FLOWS 500
+ 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -82,6 +84,49 @@
 // #include <sys/socket.h>
 
 
+// TODO HZ
+// struct
+typedef struct _HogzillaData
+{
+    char                *filename;
+    pcap_t              *pd;	       /* pcap handle */
+    pcap_dumper_t       *dumpd;
+    time_t              lastTime;
+    size_t              size;
+    size_t              limit;
+    char                logdir[STD_BUF];
+
+    int                 autolink;
+    int                 linktype;
+} HogzillaData;
+
+//CSP
+// - struct reader_thread  
+// - declaração ndpi_thread_info
+// extraido de ndpiReader.c
+//PSC
+
+
+struct reader_thread {
+  struct ndpi_detection_module_struct *ndpi_struct;
+  void *ndpi_flows_root[NUM_ROOTS];
+  char _pcap_error_buffer[PCAP_ERRBUF_SIZE];
+  pcap_t *_pcap_handle;
+  u_int64_t last_time;
+  u_int64_t last_idle_scan_time;
+  u_int32_t idle_scan_idx;
+  u_int32_t num_idle_flows;
+  pthread_t pthread;
+  int _pcap_datalink_type;
+
+  /* TODO Add barrier */
+  struct thread_stats stats;
+
+  struct ndpi_flow *idle_flows[IDLE_SCAN_BUDGET];
+};
+
+static struct reader_thread ndpi_thread_info[MAX_NUM_READER_THREADS];
+
 /* list of function prototypes for this output plugin */
 // TODO HZ
 // atualizar essa lista no final
@@ -92,10 +137,10 @@ static void SpoHogzillaCleanExitFunc(int, void *);
 static void SpoHogzillaRestartFunc(int, void *);
 static void HogzillaSingle(Packet *, void *, uint32_t, void *);
 static void HogzillaStream(Packet *, void *, uint32_t, void *);
+//static void HogzillaInitLogFileFinalize(int unused, void *arg);
+//static void HogzillaInitLogFile(HogzillaData *, int);
+//static void HogzillaRollLogFile(HogzillaData*);
 
-
-// TODO HZ
-// struct
 
 /* If you need to instantiate the plugin's data structure, do it here */
 HogzillaData *hogzilla_ptr;
@@ -570,7 +615,10 @@ static void SpoHogzillaRestartFunc(int signal, void *arg)
     SpoHogzillaCleanup(signal, arg, "SpoHogzillaRestartFunc");
 }
 
-
+// CSP
+// Observação: SpoHogzillaCleanExitFunc e SpoHogzillaRestartFunc fazem a mesma coisa, chamam a função SpoHogzillaCleanup
+//				pode diferenciar na passagem de parametros!! Observar!!!
+// PSC
 
 
 // flow tracking
@@ -670,7 +718,8 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
       if((flow->detected_protocol.protocol == NDPI_PROTOCOL_UNKNOWN) && !undetected_flows_deleted)
         undetected_flows_deleted = 1;
       
-      // TODO HZ: HogzillaSaveFlow
+      // TODO HZ: HogzillaSaveFlow 
+	  // --- salvar no HBASE??
       free_ndpi_flow(flow);
       ndpi_thread_info[thread_id].stats.ndpi_flow_count--;
 
@@ -1001,6 +1050,8 @@ static unsigned int packet_processing(u_int16_t thread_id,
 
   // TODO HZ
   // Interou 500 pacotes, salva no HBASE
+  if(ndpi_thread_info[thread_id].stats.protocol_flows[flow->detected_protocol.protocol] == HOGZILLA_MAX_NDPI_FLOWS)
+  {/*salva no HBASE*/return(0);}
   
   // TODO HZ
   // Conexão acabou? salva no HBASE e tira da árvore
@@ -1096,4 +1147,29 @@ void HogzillaSaveFlow(flow)
   // Salvar no HBASE
   //   . Ver se tá conectado, senao conecta
   //   . "insert" no banco
+}
+
+/*****
+// CSP
+// função existente no spo_log_tcpdump.c
+// função HogzillaRollLogFile comentada no prototype mas definida aqui
+// ver a necessidade de uso 
+// PSC
+void HogzillaReset(void)
+{
+    HogzillaRollLogFile(hogzilla_ptr);
+}
+*/
+
+void DirectHogzilla(struct pcap_pkthdr *ph, uint8_t *pkt)
+{
+    size_t dumpSize = SizeOf(ph);
+
+    if ( hogzilla_ptr->size + dumpSize > hogzilla_ptr->limit )
+        TcpdumpRollLogFile(hogzilla_ptr);
+
+    pc.log_pkts++;
+    pcap_dump((u_char *)hogzilla_ptr->dumpd, ph, pkt);
+
+    hogzilla_ptr->size += dumpSize;
 }

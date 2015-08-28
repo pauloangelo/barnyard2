@@ -26,4 +26,11 @@
  * files.
  */
 
+#ifndef __HOGZILLA_H__
+#define __HOGZILLA_H__
+
 void HogzillaSetup(void);
+void HogzillaReset(void);
+
+#endif  /* __HOGZILLA_H__ */
+
