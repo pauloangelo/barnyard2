@@ -41,7 +41,8 @@
  *
  */
 
- #define HOGZILLA_MAX_NDPI_FLOWS 500
+#define HOGZILLA_MAX_NDPI_FLOWS 500
+#define HOGZILLA_MAX_EVENT_TABLE 100000;
  
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -88,9 +89,12 @@
 // struct
 typedef struct _HogzillaData
 {
-    char                *filename;
+    char                *hbase_host;
+    u_int32_t           hbase_port;
+
     pcap_t              *pd;	       /* pcap handle */
     pcap_dumper_t       *dumpd;
+
     time_t              lastTime;
     size_t              size;
     size_t              limit;
@@ -107,25 +111,21 @@ typedef struct _HogzillaData
 //PSC
 
 
-struct reader_thread {
+
+struct reader_hogzilla {
   struct ndpi_detection_module_struct *ndpi_struct;
   void *ndpi_flows_root[NUM_ROOTS];
-  char _pcap_error_buffer[PCAP_ERRBUF_SIZE];
-  pcap_t *_pcap_handle;
   u_int64_t last_time;
   u_int64_t last_idle_scan_time;
   u_int32_t idle_scan_idx;
   u_int32_t num_idle_flows;
-  pthread_t pthread;
-  int _pcap_datalink_type;
-
-  /* TODO Add barrier */
-  struct thread_stats stats;
+  void *eventById[MAX_EVENT_TABLE];
 
   struct ndpi_flow *idle_flows[IDLE_SCAN_BUDGET];
-};
 
-static struct reader_thread ndpi_thread_info[MAX_NUM_READER_THREADS];
+};
+// 
+// static struct reader_thread ndpi_thread_info[MAX_NUM_READER_THREADS];
 
 /* list of function prototypes for this output plugin */
 // TODO HZ
@@ -214,6 +214,7 @@ static HogzillaData *ParseHogzillaArgs(char *args)
     int num_toks;
     HogzillaData *data;
     int i;
+    char *hbase_string;
 
     DEBUG_WRAP(DebugMessage(DEBUG_LOG, "ParseHogzillaArgs: %s\n", args););
     data = (HogzillaData *) SnortAlloc(sizeof(HogzillaData));
@@ -222,7 +223,8 @@ static HogzillaData *ParseHogzillaArgs(char *args)
     {
         FatalError("hogzilla: unable to allocate memory!\n");
     }
-    data->filename = "localhost";
+    data->hbase_host = "localhost";
+    data->hbase_port = 9090;
 
     if ( args == NULL )
         args = "";
@@ -237,118 +239,23 @@ static HogzillaData *ParseHogzillaArgs(char *args)
         switch (i)
         {
             case 0:
-                data->filename = SnortStrdup(tok);
+                hbase_string = strtok(tok,':');
+                data->hbase_host = SnortStrdup(hbase_string);
+                hbase_string = strtok(NULL,':');
+                if(hbase_string!=NULL)
+                    data->hbase_host = atoi(hbase_string);
+
                 break;
 
             case 1:
-                data->limit = strtol(tok, &end, 10);
-
-                if ( tok == end )
-                    FatalError("log_tcpdump error in %s(%i): %s\n",
-                        file_name, file_line, tok);
-
-                if ( end && toupper(*end) == 'G' )
-                    data->limit <<= 30; /* GB */
-
-                else if ( end && toupper(*end) == 'M' )
-                    data->limit <<= 20; /* MB */
-
-                else if ( end && toupper(*end) == 'K' )
-                    data->limit <<= 10; /* KB */
-                break;
-
-            case 2:
-
-                if ( !strncmp(tok, "DLT_EN10MB", 10) )             /* ethernet */
-                {
-                    data->linktype = DLT_EN10MB;
-                    data->autolink = 0;
-                }
-#ifdef DLT_IEEE802_11
-                else if ( !strncmp(tok, "DLT_IEEE802_11", 14) )    
-                {
-                    data->linktype = DLT_IEEE802_11;
-                    data->autolink = 0;
-                }
-#endif
-#ifdef DLT_ENC
-                else if ( !strncmp(tok, "DLT_ENC", 7) )            /* encapsulated data */
-                {
-                    data->linktype = DLT_ENC;
-                    data->autolink = 0;
-                }
-#endif
-                else if ( !strncmp(tok, "DLT_IEEE805", 11) )       /* token ring */
-                {
-                    data->linktype = DLT_IEEE802;
-                    data->autolink = 0;
-                }
-                else if ( !strncmp(tok, "DLT_FDDI", 8) )           /* FDDI */
-                {
-                    data->linktype = DLT_FDDI;
-                    data->autolink = 0;
-                }
-#ifdef DLT_CHDLC
-                else if ( !strncmp(tok, "DLT_CHDLC", 9) )          /* cisco HDLC */
-                {
-                    data->linktype = DLT_CHDLC;
-                    data->autolink = 0;
-                }
-#endif
-                else if ( !strncmp(tok, "DLT_SLIP", 8) )           /* serial line internet protocol */
-                {
-                    data->linktype = DLT_SLIP;
-                    data->autolink = 0;
-                }
-                else if ( !strncmp(tok, "DLT_PPP", 7) )            /* point-to-point protocol */
-                {
-                    data->linktype = DLT_PPP;
-                    data->autolink = 0;
-                }
-#ifdef DLT_PPP_SERIAL
-                else if ( !strncmp(tok, "DLT_PPP_SERIAL", 14) )     /* PPP with full HDLC header */
-                {
-                    data->linktype = DLT_PPP_SERIAL;
-                    data->autolink = 0;
-                }
-#endif
-#ifdef DLT_LINUX_SLL
-                else if ( !strncmp(tok, "DLT_LINUX_SLL", 13) )     
-                {
-                    data->linktype = DLT_LINUX_SLL;
-                    data->autolink = 0;
-                }
-#endif
-#ifdef DLT_PFLOG
-                else if ( !strncmp(tok, "DLT_PFLOG", 9) )     
-                {
-                    data->linktype = DLT_PFLOG;
-                    data->autolink = 0;
-                }
-#endif
-#ifdef DLT_OLDPFLOG
-                else if ( !strncmp(tok, "DLT_OLDPFLOG", 12) )     
-                {
-                    data->linktype = DLT_OLDPFLOG;
-                    data->autolink = 0;
-                }
-#endif
-
-                break;
-
-            case 3:
-                FatalError("log_tcpdump: error in %s(%i): %s\n",
-                    file_name, file_line, tok);
+                //TODO HZ: Colocar o nome do banco, se necessario ou gerar erro
                 break;
         }
     }
     mSplitFree(&toks, num_toks);
 
-    if ( data->filename == NULL )
-        data->filename = SnortStrdup(DEFAULT_FILE);
-
     DEBUG_WRAP(DebugMessage(
-        DEBUG_INIT, "hogzilla: '%s' %ld\n", data->filename, data->limit
+        DEBUG_INIT, "hogzilla should save on host %s port %ld\n", data->hbase_host, data->hbase_port
     ););
     return data;
 }
@@ -374,173 +281,45 @@ static void Hogzilla(Packet *p, void *event, uint32_t event_type, void *arg)
 //       ii ) Atingiu 500 pacotes no fluxo
 //       iii) A conexão ficou IDLE por mais de MAX_IDLE_TIME
 
-    if(p)
-    {
-        if(p->packet_flags & PKT_REBUILT_STREAM)
-        {
-            HogzillaStream(p, event, event_type, arg);
-        }
-        else
-        {
-            HogzillaSingle(p, event, event_type, arg);
-        }
-    }
+   if(event!=NULL)
+   {
+       event_id = ntohl(((Unified2EventCommon *)event)->event_id);
+       reader_hogzilla->eventById[event_id]= &event;
+   }else
+   {
+       // TODO HZ:
+       // A partir de *p, criar chamada para a função abaixo
+       flow=packet_processing();
+       flow->event=reader_hogzilla->eventById[p->event_id];
+   }
+//static unsigned int packet_processing( const u_int64_t time,
+//				      u_int16_t vlan_id,
+//				      const struct ndpi_iphdr *iph,
+//				      struct ndpi_ip6_hdr *iph6,
+//				      u_int16_t ip_offset,
+//				      u_int16_t ipsize, u_int16_t rawsize) {
+
+   //OU
+       flow=packet_processing();
+       if(event!=NULL)
+          flow->event=event;
+
+//    if(p)
+//    {
+//        if(p->packet_flags & PKT_REBUILT_STREAM)
+//        {
+//            HogzillaStream(p, event, event_type, arg);
+//        }
+//        else
+//        {
+//            HogzillaSingle(p, event, event_type, arg);
+//        }
+//    }
 }
 
 static INLINE size_t SizeOf (const struct pcap_pkthdr *pkth)
 {
     return PCAP_PKT_HDR_SZ + pkth->caplen;
-}
-
-static void HogzillaSingle(Packet *p, void *event, uint32_t event_type, void *arg)
-{
-    HogzillaData *data = (HogzillaData *)arg;
-    size_t dumpSize = SizeOf(p->pkth);
-
-    /* roll log file packet linktype is different to the dump linktype and in automode */
-
-//    if ( data->linktype != p->linktype )
-//    {
-//        if ( data->autolink == 1)
-//        {
-//            data->linktype = p->linktype;
-//            HogzillaRollLogFile(data);
-//        }
-        /* otherwise alert that the results will not be as expected */
-//        else
-//        {
-//            LogMessage("tcpdump:  packet linktype is not compatible with dump linktype.\n");
-//        }
-//    }
-
-    /* roll log file if size limit is exceeded */
-//    else if ( data->size + dumpSize > data->limit )
-//        HogzillaRollLogFile(data);
-
-    pcap_dump((u_char *)data->dumpd, p->pkth, p->pkt);
-    data->size += dumpSize;
-
-    if (!BcLineBufferedLogging())
-    { 
-#ifdef WIN32
-        fflush( NULL );  /* flush all open output streams */
-#else
-        /* we happen to know that pcap_dumper_t* is really just a FILE* */
-        fflush( (FILE*) data->dumpd );
-#endif
-    }
-}
-
-static void HogzillaStream(Packet *p, void *event, uint32_t event_type, void *arg)
-{
-    HogzillaData *data = (HogzillaData *)arg;
-    size_t dumpSize = 0;
-
-//    if (stream_api)
-//        stream_api->traverse_reassembled(p, SizeOfCallback, &dumpSize);
-
-    if ( data->size + dumpSize > data->limit )
-        HogzillaRollLogFile(data);
-
-//    if (stream_api)
-//        stream_api->traverse_reassembled(p, HogzillaStreamCallback, data);
-
-    data->size += dumpSize;
-
-    if (!BcLineBufferedLogging())
-    { 
-#ifdef WIN32
-        fflush( NULL );  /* flush all open output streams */
-#else
-        /* we happen to know that pcap_dumper_t* is really just a FILE* */
-        fflush( (FILE*) data->dumpd );
-#endif
-    }
-}
-
-static void HogzillaInitLogFileFinalize(int unused, void *arg)
-{
-    HogzillaInitLogFile((HogzillaData *)arg, BcNoOutputTimestamp());
-}
-
-/*
- * Function: HogzillaInitLogFile()
- *
- * Purpose: Initialize the tcpdump log file header
- *
- * Arguments: data => pointer to the plugin's reference data struct 
- *
- * Returns: void function
- */
-static void HogzillaInitLogFile(HogzillaData *data, int nostamps)
-{
-    int value;
-    data->lastTime = time(NULL);
-
-    if (nostamps)
-    {
-        if(data->filename[0] == '/')
-            value = SnortSnprintf(data->logdir, STD_BUF, "%s", data->filename);
-        else
-            value = SnortSnprintf(data->logdir, STD_BUF, "%s/%s", barnyard2_conf->log_dir, 
-                                  data->filename);
-    }
-    else 
-    {
-        if(data->filename[0] == '/')
-            value = SnortSnprintf(data->logdir, STD_BUF, "%s.%lu", data->filename, 
-                                  (uint32_t)data->lastTime);
-        else
-            value = SnortSnprintf(data->logdir, STD_BUF, "%s/%s.%lu", barnyard2_conf->log_dir, 
-                                  data->filename, (uint32_t)data->lastTime);
-    }
-
-    if(value != SNORT_SNPRINTF_SUCCESS)
-        FatalError("log file logging path and file name are too long\n");
-
-    DEBUG_WRAP(DebugMessage(DEBUG_LOG, "Opening %s\n", data->logdir););
-
-    if(!BcTestMode())
-    {
-        data->pd = pcap_open_dead(data->linktype, PKT_SNAPLEN);
-        data->dumpd = pcap_dump_open(data->pd, data->logdir);
-
-        if(data->dumpd == NULL)
-        {
-            FatalError("log_tcpdump: Failed to open log file \"%s\": %s\n",
-                       data->logdir, strerror(errno));
-        }
-    }
-
-    data->size = PCAP_FILE_HDR_SZ;
-}
-
-static void HogzillaRollLogFile(HogzillaData* data)
-{
-    time_t now = time(NULL);
-
-    /* don't roll over any sooner than resolution
-     * of filename discriminator
-     */
-    if ( now <= data->lastTime ) return;
-
-    /* close the output file */
-    if( data->dumpd != NULL )
-    {
-        pcap_dump_close(data->dumpd);
-        data->dumpd = NULL;
-        data->size = 0;
-    }
-
-    /* close the pcap */
-    if (data->pd != NULL)
-    {
-        pcap_close(data->pd);
-        data->pd = NULL;
-    }
-
-    /* Have to add stamps now to distinguish files */
-    HogzillaInitLogFile(data, 0);
 }
 
 /*
@@ -564,42 +343,7 @@ static void SpoHogzillaCleanup(int signal, void *arg, const char* msg)
 
     DEBUG_WRAP(DebugMessage(DEBUG_LOG,"%s\n", msg););
 
-    /* close the output file */
-    if( data->dumpd != NULL )
-    {
-        pcap_dump_close(data->dumpd);
-        data->dumpd = NULL;
-    }
-
-    /* close the pcap */
-    if (data->pd != NULL)
-    {
-        pcap_close(data->pd);
-        data->pd = NULL;
-    }
-
-    /* 
-     * if we haven't written any data, dump the output file so there aren't
-     * fragments all over the disk 
-     */
-     /*
-    if(!BcTestMode() && *data->logdir && pc.alert_pkts==0 && pc.log_pkts==0)
-    {
-        int ret;
-
-        ret = unlink(data->logdir);
-
-        if (ret != 0)
-        {
-            ErrorMessage("Could not remove tcpdump output file %s: %s\n",
-                         data->logdir, strerror(errno));
-        }
-    }*/
-
-    if (data->filename)
-    {
-        free (data->filename);
-    }
+    closeHBase();
 
     memset(data,'\0',sizeof(HogzillaData));
     free(data);
@@ -614,6 +358,12 @@ static void SpoHogzillaRestartFunc(int signal, void *arg)
 {
     SpoHogzillaCleanup(signal, arg, "SpoHogzillaRestartFunc");
 }
+
+static void closeHBase(void)
+{
+   // TODO HZ: fechar banco hbase
+}
+
 
 // CSP
 // Observação: SpoHogzillaCleanExitFunc e SpoHogzillaRestartFunc fazem a mesma coisa, chamam a função SpoHogzillaCleanup
@@ -651,8 +401,8 @@ typedef struct ndpi_flow {
   u_int64_t flow_duration;
   u_int64_t first_seen;
 
-  u_int32_t inter_time[500];
-  u_int64_t packet_size[500];
+  u_int32_t inter_time[HOGZILLA_MAX_NDPI_FLOWS];
+  u_int64_t packet_size[HOGZILLA_MAX_NDPI_FLOWS];
   //AP
 
   // result only, not used for flow identification
@@ -973,9 +723,7 @@ static void updateFlowFeatures(u_int16_t thread_id,
                       u_int16_t ipsize,
                       u_int16_t rawsize) {
 
-    ndpi_thread_info[thread_id].stats.ip_packet_count++;
-    ndpi_thread_info[thread_id].stats.total_wire_bytes += rawsize + 24 /* CRC etc */, ndpi_thread_info[thread_id].stats.total_ip_bytes += rawsize;
-    if(flow->packets<500)
+    if(flow->packets<HOGZILLA_MAX_NDPI_FLOWS)
     {
         flow->inter_time[flow->packets] = time - flow->last_seen;
         flow->packet_size[flow->packets]=rawsize;
@@ -1013,8 +761,7 @@ static void updateFlowFeatures(u_int16_t thread_id,
 
 
 // ipsize = header->len - ip_offset ; rawsize = header->len
-static unsigned int packet_processing(u_int16_t thread_id,
-				      const u_int64_t time,
+static unsigned int packet_processing( const u_int64_t time,
 				      u_int16_t vlan_id,
 				      const struct ndpi_iphdr *iph,
 				      struct ndpi_ip6_hdr *iph6,
@@ -1026,23 +773,14 @@ static unsigned int packet_processing(u_int16_t thread_id,
   u_int8_t proto;
 
   if(iph)
-    flow = get_ndpi_flow(thread_id, 4, vlan_id, iph, ip_offset, ipsize,
+    flow = get_ndpi_flow(4, vlan_id, iph, ip_offset, ipsize,
 			 ntohs(iph->tot_len) - (iph->ihl * 4),
 			 &src, &dst, &proto, NULL);
   else
-    flow = get_ndpi_flow6(thread_id, vlan_id, iph6, ip_offset, &src, &dst, &proto);
+    flow = get_ndpi_flow6(vlan_id, iph6, ip_offset, &src, &dst, &proto);
 
   if(flow != NULL) {
-// static void updateFlowFeatures(u_int16_t *thread_id,
-//                       struct ndpi_flow *flow, 
-// 				      const u_int64_t *time,
-// 				      u_int16_t *vlan_id,
-// 				      const struct ndpi_iphdr *iph,
-// 				      struct ndpi_ip6_hdr *iph6,
-// 				      u_int16_t *ip_offset,
-// 				      u_int16_t *ipsize, 
-//                       u_int16_t *rawsize) {
-     updateFlowFeatures(thread_id,flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize);
+     updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize);
      ndpi_flow = flow->ndpi_flow;
   } else {
     return(0);
@@ -1050,13 +788,31 @@ static unsigned int packet_processing(u_int16_t thread_id,
 
   // TODO HZ
   // Interou 500 pacotes, salva no HBASE
-  if(ndpi_thread_info[thread_id].stats.protocol_flows[flow->detected_protocol.protocol] == HOGZILLA_MAX_NDPI_FLOWS)
-  {/*salva no HBASE*/return(0);}
+  if( flow->packets == HOGZILLA_MAX_NDPI_FLOWS)
+  { saveHBase(); /*salva no HBASE*/return(0);}
   
   // TODO HZ
   // Conexão acabou? salva no HBASE e tira da árvore
+   if( packet->tcp->fin == 1 || packet->tcp->rst == 1 )
+   {
+       saveHBase(); 
+   }
 
+   // if (packet->tcp->psh == 0) {
+   /*
+   struct ndpi_tcphdr {
+     165   u_int16_t source;
+     166   u_int16_t dest;
+     167   u_int32_t seq;
+     168   u_int32_t ack_seq;
+     169 #if defined(__LITTLE_ENDIAN__)
+       170   u_int16_t res1:4, doff:4, fin:1, syn:1, rst:1, psh:1, ack:1, urg:1, ece:1, cwr:1;
+     171 #elif defined(__BIG_ENDIAN__)
+       172   u_int16_t doff:4, res1:4, cwr:1, ece:1, urg:1, ack:1, psh:1, rst:1, syn:1, fin:1;
+     173 #else
 
+     */
+  
   if(flow->detection_completed) return(0);
 
   flow->detected_protocol = ndpi_detection_process_packet(ndpi_thread_info[thread_id].ndpi_struct, ndpi_flow,
