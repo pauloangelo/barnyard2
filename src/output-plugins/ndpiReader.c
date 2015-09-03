@@ -1776,6 +1776,8 @@ static void pcap_packet_callback(u_char *args, const struct pcap_pkthdr *header,
 		    ip_offset, header->len - ip_offset, header->len);
 }
 
+//XXXY
+
 /* ******************************************************************** */
 
 static void runPcapLoop(u_int16_t thread_id) {
