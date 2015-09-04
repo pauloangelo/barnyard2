@@ -41,11 +41,19 @@
  *
  */
 
-#define HOGZILLA_MAX_NDPI_FLOWS 500
-#define HOGZILLA_MAX_EVENT_TABLE 100000;
+#define HOGZILLA_MAX_NDPI_FLOWS 50000
+#define HOGZILLA_MAX_NDPI_PKT_PER_FLOW 500
+#define HOGZILLA_MAX_EVENT_TABLE 100000
+#define HOGZILLA_MAX_IDLE_TIME 30000
+#define IDLE_SCAN_PERIOD       10000
+#define GTP_U_V1_PORT        2152
  
 #ifdef HAVE_CONFIG_H
 #include "config.h"
+#endif
+
+#ifndef ETH_P_IP
+#define ETH_P_IP 0x0800
 #endif
 
 #ifdef HAVE_STRINGS_H
@@ -89,17 +97,20 @@
 #include "output-plugins/hogzilla/hbase_types.h"
 #include "output-plugins/hogzilla/hbase.h"
 
+#define NUM_ROOTS                 512
+#define IDLE_SCAN_BUDGET         1024
 
-typedef struct HogzillaHBase
+
+typedef struct _HogzillaHBase
 {
   ThriftSocket          *socket;
   ThriftTransport       *transport;
   ThriftProtocol        *protocol;
   HbaseIf               *client;
-  GError                *error = NULL;
-  IOError               *ioerror = NULL;
-  IllegalArgument       *iargument = NULL;
-};
+  GError                *error;
+  IOError               *ioerror;
+  IllegalArgument       *iargument;
+} HogzillaHBase;
 
 // TODO HZ
 // struct
@@ -123,11 +134,12 @@ struct reader_hogzilla {
   u_int64_t last_idle_scan_time;
   u_int32_t idle_scan_idx;
   u_int32_t num_idle_flows;
-  void *eventById[MAX_EVENT_TABLE];
+  u_int32_t ndpi_flow_count;
+  void *eventById[HOGZILLA_MAX_EVENT_TABLE];
   struct ndpi_flow *idle_flows[IDLE_SCAN_BUDGET];
 };
 
-static struct reader_hogzilla ndpi_info[MAX_NUM_READER_THREADS];
+static struct reader_hogzilla ndpi_info;
 
 /* list of function prototypes for this output plugin */
 // TODO HZ
@@ -145,6 +157,12 @@ static void HogzillaStream(Packet *, void *, uint32_t, void *);
 
 /* If you need to instantiate the plugin's data structure, do it here */
 HogzillaData *hogzilla_ptr;
+HogzillaHBase * hbase;
+static u_int8_t undetected_flows_deleted = 0;
+static u_int32_t size_id_struct = 0;		//< ID tracking structure size
+static u_int32_t size_flow_struct = 0;
+static u_int32_t detection_tick_resolution = 1000;
+static u_int16_t decode_tunnels = 0;
 
 /*
  * Function: HogzillaSetup()
@@ -165,6 +183,10 @@ void HogzillaSetup(void)
     RegisterOutputPlugin("hogzilla", OUTPUT_TYPE_FLAG__LOG, HogzillaInit);
 
     DEBUG_WRAP(DebugMessage(DEBUG_INIT,"Output plugin: Hogzilla is setup...\n"););
+
+  size_id_struct = ndpi_detection_get_sizeof_ndpi_id_struct();
+  size_flow_struct = ndpi_detection_get_sizeof_ndpi_flow_struct();
+  ndpi_info = (struct reader_hogzilla*)malloc(sizeof(struct reader_hogzilla));
 }
 
 
@@ -216,6 +238,8 @@ static HogzillaData *ParseHogzillaArgs(char *args)
     HogzillaData *data;
     int i;
     char *hbase_string;
+    char *tok;
+    const char delimiters[] = ":";  
 
     DEBUG_WRAP(DebugMessage(DEBUG_LOG, "ParseHogzillaArgs: %s\n", args););
     data = (HogzillaData *) SnortAlloc(sizeof(HogzillaData));
@@ -234,17 +258,15 @@ static HogzillaData *ParseHogzillaArgs(char *args)
 
     for (i = 0; i < num_toks; i++)
     {
-        const char* tok = toks[i];
-        char *end;
-
+        tok = toks[i];
         switch (i)
         {
             case 0:
-                hbase_string = strtok(tok,':');
+                hbase_string = strtok(tok,delimiters);
                 data->hbase_host = SnortStrdup(hbase_string);
-                hbase_string = strtok(NULL,':');
+                hbase_string = strtok(NULL,delimiters);
                 if(hbase_string!=NULL)
-                    data->hbase_host = atoi(hbase_string);
+                    data->hbase_port = atoi(hbase_string);
 
                 break;
 
@@ -261,61 +283,18 @@ static HogzillaData *ParseHogzillaArgs(char *args)
     return data;
 }
 
-/*
- * Function: PreprocFunction(Packet *)
- *
- * Purpose: Perform the preprocessor's intended function.  This can be
- *          simple (statistics collection) or complex (IP defragmentation)
- *          as you like.  Try not to destroy the performance of the whole
- *          system by trying to do too much....
- *
- * Arguments: p => pointer to the current packet data struct 
- *
- * Returns: void function
- */
-static void Hogzilla(Packet *p, void *event, uint32_t event_type, void *arg)
+// static INLINE size_t SizeOf (const struct pcap_pkthdr *pkth)
+// {
+//     return PCAP_PKT_HDR_SZ + pkth->caplen;
+// }
+
+static void closeHBase(void)
 {
-
-// Processar na nDPI
-//    . lá na nDPI, quando ocorrer uma das abaixo, o flow deve ser salvo no HBASE
-//       i  ) Conexão terminou
-//       ii ) Atingiu 500 pacotes no fluxo
-//       iii) A conexão ficou IDLE por mais de MAX_IDLE_TIME
-
-   if(event!=NULL)
-   {
-       event_id = ntohl(((Unified2EventCommon *)event)->event_id);
-       ndpi_info->eventById[event_id]= &event;
-   }else
-   {
-       // TODO HZ:
-       // A partir de *p, criar chamada para a função abaixo
-       flow=packet_processing_by_pcap( p->pkth, p->pkt);
-       flow->event=ndpi_info->eventById[p->event_id];
-   }
-
-   //OU
-       flow=packet_processing_by_pcap( p->pkth, p->pkt);
-       if(event!=NULL)
-          flow->event=event;
-
-// Deixe aqui por enquanto, pode ser necessário no futuro.
-//    if(p)
-//    {
-//        if(p->packet_flags & PKT_REBUILT_STREAM)
-//        {
-//            HogzillaStream(p, event, event_type, arg);
-//        }
-//        else
-//        {
-//            HogzillaSingle(p, event, event_type, arg);
-//        }
-//    }
-}
-
-static INLINE size_t SizeOf (const struct pcap_pkthdr *pkth)
-{
-    return PCAP_PKT_HDR_SZ + pkth->caplen;
+  thrift_transport_close (hbase->transport, NULL);
+  g_object_unref (hbase->client);
+  g_object_unref (hbase->protocol);
+  g_object_unref (hbase->transport);
+  g_object_unref (hbase->socket);
 }
 
 /*
@@ -355,10 +334,6 @@ static void SpoHogzillaRestartFunc(int signal, void *arg)
     SpoHogzillaCleanup(signal, arg, "SpoHogzillaRestartFunc");
 }
 
-static void closeHBase(void)
-{
-   // TODO HZ: fechar banco hbase
-}
 
 
 // CSP
@@ -397,8 +372,8 @@ typedef struct ndpi_flow {
   u_int64_t flow_duration;
   u_int64_t first_seen;
 
-  u_int32_t inter_time[HOGZILLA_MAX_NDPI_FLOWS];
-  u_int64_t packet_size[HOGZILLA_MAX_NDPI_FLOWS];
+  u_int32_t inter_time [HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
+  u_int64_t packet_size[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
 
   Unified2EventCommon *event;
   //AP
@@ -417,10 +392,22 @@ typedef struct ndpi_flow {
 
 
 
+static u_int16_t node_guess_undetected_protocol(struct ndpi_flow *flow) {
+  flow->detected_protocol = ndpi_guess_undetected_protocol(ndpi_info.ndpi_struct,
+							   flow->protocol,
+							   ntohl(flow->lower_ip),
+							   ntohs(flow->lower_port),
+							   ntohl(flow->upper_ip),
+							   ntohs(flow->upper_port));
+  // printf("Guess state: %u\n", flow->detected_protocol);
+
+  return(flow->detected_protocol.protocol);
+}
+
+
 /* ***************************************************** */
 static void node_proto_guess_walker(const void *node, ndpi_VISIT which, int depth, void *user_data) {
   struct ndpi_flow *flow = *(struct ndpi_flow **) node;
-  u_int16_t thread_id = *((u_int16_t *) user_data);
 
 #if 0
   printf("<%d>Walk on node %s (%p)\n",
@@ -433,23 +420,54 @@ static void node_proto_guess_walker(const void *node, ndpi_VISIT which, int dept
 #endif
 
   if((which == ndpi_preorder) || (which == ndpi_leaf)) { /* Avoid walking the same node multiple times */
-    if(enable_protocol_guess) {
       if(flow->detected_protocol.protocol == NDPI_PROTOCOL_UNKNOWN) {
-    node_guess_undetected_protocol(thread_id, flow);
+    node_guess_undetected_protocol(flow);
     // printFlow(thread_id, flow);
       }
-    }
 
-    ndpi_info.stats.protocol_counter[flow->detected_protocol.protocol]       += flow->packets;
-    ndpi_info.stats.protocol_counter_bytes[flow->detected_protocol.protocol] += flow->bytes;
-    ndpi_info.stats.protocol_flows[flow->detected_protocol.protocol]++;
   }
+}
+/* ***************************************************** */
+
+void HogzillaSaveFlow(struct ndpi_flow *flow)
+{
+  char str[100];
+
+  // Salvar no HBASE
+  //   . Ver se tá conectado, senao conecta
+     hbase = connectHBase();
+     //GPtrArray *lista ;
+     //lista = g_ptr_array_new ();
+     GHashTable * attributes = g_hash_table_new(g_str_hash, g_str_equal);
+     GPtrArray * mutations;
+     mutations = g_ptr_array_new ();
+     
+     Hogzilla_mutations(&flow,&mutations);
+     
+     Text * tabela = g_byte_array_new ();
+     g_byte_array_append (tabela, (guint8*) "hogzilla_flows", 14);
+
+     Text * chave ;
+     //TODO HZ: encontrar uma chave única melhor para cada flow
+     sprintf(str, "%lld.%lld", flow->first_seen,flow->lower_ip) ;
+     chave = g_byte_array_new ();
+     g_byte_array_append (chave,(guint8*) str,  strlen(str));
+
+     hbase_client_mutate_row (hbase->client, tabela, chave, mutations,attributes, &hbase->ioerror, &hbase->iargument, &hbase->error);
+     //TODO HZ:  Trata os errors ioerror, iargument, error
+}
+
+/* ***************************************************** */
+static void free_ndpi_flow(struct ndpi_flow *flow) {
+  if(flow->ndpi_flow) { ndpi_free_flow(flow->ndpi_flow); flow->ndpi_flow = NULL; }
+  if(flow->src_id)    { ndpi_free(flow->src_id); flow->src_id = NULL;       }
+  if(flow->dst_id)    { ndpi_free(flow->dst_id); flow->dst_id = NULL;       }
+
 }
 /* ***************************************************** */
 
 static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth, void *user_data) {
   struct ndpi_flow *flow = *(struct ndpi_flow **) node;
-  u_int16_t thread_id = *((u_int16_t *) user_data);
   
   
   //  Conexões idle, salva no HBASE e apaga
@@ -458,7 +476,7 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
     return;
 
   if((which == ndpi_preorder) || (which == ndpi_leaf)) { /* Avoid walking the same node multiple times */
-    if(flow->last_seen + MAX_IDLE_TIME < ndpi_info.last_time) {
+    if(flow->last_seen + HOGZILLA_MAX_IDLE_TIME < ndpi_info.last_time) {
 
       /* update stats */
       node_proto_guess_walker(node, which, depth, user_data);
@@ -470,7 +488,6 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
 	  // --- salvar no HBASE??
       HogzillaSaveFlow(flow);
       free_ndpi_flow(flow);
-      ndpi_info.stats.ndpi_flow_count--;
 
       /* adding to a queue (we can't delete it from the tree inline ) */
       ndpi_info.idle_flows[ndpi_info.num_idle_flows++] = flow;
@@ -495,8 +512,7 @@ static int node_cmp(const void *a, const void *b) {
 
 /* ***************************************************** */
 
-static struct ndpi_flow *get_ndpi_flow(u_int16_t thread_id,
-                       const u_int8_t version,
+static struct ndpi_flow *get_ndpi_flow( const u_int8_t version,
                        u_int16_t vlan_id,
                        const struct ndpi_iphdr *iph,
                        u_int16_t ip_offset,
@@ -536,22 +552,6 @@ static struct ndpi_flow *get_ndpi_flow(u_int16_t thread_id,
     l3 = (u_int8_t*)iph6;
   }
 
-  if(l4_packet_len < 64)
-    ndpi_info.stats.packet_len[0]++;
-  else if(l4_packet_len >= 64 && l4_packet_len < 128)
-    ndpi_info.stats.packet_len[1]++;
-  else if(l4_packet_len >= 128 && l4_packet_len < 256)
-    ndpi_info.stats.packet_len[2]++;
-  else if(l4_packet_len >= 256 && l4_packet_len < 1024)
-    ndpi_info.stats.packet_len[3]++;
-  else if(l4_packet_len >= 1024 && l4_packet_len < 1500)
-    ndpi_info.stats.packet_len[4]++;
-  else if(l4_packet_len >= 1500)
-    ndpi_info.stats.packet_len[5]++;
-
-  if(l4_packet_len > ndpi_info.stats.max_packet_len)
-    ndpi_info.stats.max_packet_len = l4_packet_len;
-
   if(iph->saddr < iph->daddr) {
     lower_ip = iph->saddr;
     upper_ip = iph->daddr;
@@ -563,8 +563,6 @@ static struct ndpi_flow *get_ndpi_flow(u_int16_t thread_id,
   *proto = iph->protocol;
 
   if(iph->protocol == 6 && l4_packet_len >= 20) {
-    ndpi_info.stats.tcp_count++;
-
     // tcp
     tcph = (struct ndpi_tcphdr *) ((u_int8_t *) l3 + l4_offset);
     if(iph->saddr < iph->daddr) {
@@ -585,8 +583,6 @@ static struct ndpi_flow *get_ndpi_flow(u_int16_t thread_id,
     }
   } else if(iph->protocol == 17 && l4_packet_len >= 8) {
     // udp
-    ndpi_info.stats.udp_count++;
-
     udph = (struct ndpi_udphdr *) ((u_int8_t *) l3 + l4_offset);
     if(iph->saddr < iph->daddr) {
       lower_port = udph->source;
@@ -613,8 +609,8 @@ static struct ndpi_flow *get_ndpi_flow(u_int16_t thread_id,
   ret = ndpi_tfind(&flow, &ndpi_info.ndpi_flows_root[idx], node_cmp);
 
   if(ret == NULL) {
-    if(ndpi_info.stats.ndpi_flow_count == MAX_NDPI_FLOWS) {
-      printf("ERROR: maximum flow count (%u) has been exceeded\n", MAX_NDPI_FLOWS);
+    if(ndpi_info.ndpi_flow_count == HOGZILLA_MAX_NDPI_FLOWS) {
+      printf("ERROR: maximum flow count (%u) has been exceeded\n", HOGZILLA_MAX_NDPI_FLOWS);
       exit(-1);
     } else {
       struct ndpi_flow *newflow = (struct ndpi_flow*)malloc(sizeof(struct ndpi_flow));
@@ -641,20 +637,20 @@ static struct ndpi_flow *get_ndpi_flow(u_int16_t thread_id,
     inet_ntop(AF_INET6, &iph6->ip6_dst, newflow->upper_name, sizeof(newflow->upper_name));
       }
 
-      if((newflow->ndpi_flow = malloc_wrapper(size_flow_struct)) == NULL) {
+      if((newflow->ndpi_flow = malloc(size_flow_struct)) == NULL) {
     printf("[NDPI] %s(2): not enough memory\n", __FUNCTION__);
     free(newflow);
     return(NULL);
       } else
     memset(newflow->ndpi_flow, 0, size_flow_struct);
-      if((newflow->src_id = malloc_wrapper(size_id_struct)) == NULL) {
+      if((newflow->src_id = malloc(size_id_struct)) == NULL) {
     printf("[NDPI] %s(3): not enough memory\n", __FUNCTION__);
     free(newflow);
     return(NULL);
       } else
     memset(newflow->src_id, 0, size_id_struct);
 
-      if((newflow->dst_id = malloc_wrapper(size_id_struct)) == NULL) {
+      if((newflow->dst_id = malloc(size_id_struct)) == NULL) {
     printf("[NDPI] %s(4): not enough memory\n", __FUNCTION__);
     free(newflow);
     return(NULL);
@@ -662,7 +658,7 @@ static struct ndpi_flow *get_ndpi_flow(u_int16_t thread_id,
     memset(newflow->dst_id, 0, size_id_struct);
 
       ndpi_tsearch(newflow, &ndpi_info.ndpi_flows_root[idx], node_cmp); /* Add */
-      ndpi_info.stats.ndpi_flow_count++;
+      ndpi_info.ndpi_flow_count++;
 
       *src = newflow->src_id, *dst = newflow->dst_id;
 
@@ -684,8 +680,7 @@ static struct ndpi_flow *get_ndpi_flow(u_int16_t thread_id,
 }
 
 /* ***************************************************** */
-static struct ndpi_flow *get_ndpi_flow6(u_int16_t thread_id,
-                    u_int16_t vlan_id,
+static struct ndpi_flow *get_ndpi_flow6(u_int16_t vlan_id,
                     const struct ndpi_ip6_hdr *iph6,
                     u_int16_t ip_offset,
                     struct ndpi_id_struct **src,
@@ -705,15 +700,14 @@ static struct ndpi_flow *get_ndpi_flow6(u_int16_t thread_id,
     iph.protocol = options[0];
   }
 
-  return(get_ndpi_flow(thread_id, 6, vlan_id, &iph, ip_offset,
+  return(get_ndpi_flow(6, vlan_id, &iph, ip_offset,
                sizeof(struct ndpi_ip6_hdr),
                ntohs(iph6->ip6_ctlun.ip6_un1.ip6_un1_plen),
                src, dst, proto, iph6));
 }
 
 /* ***************************************************** */
-static void updateFlowFeatures(u_int16_t thread_id,
-                      struct ndpi_flow *flow,
+static void updateFlowFeatures(struct ndpi_flow *flow,
                       const u_int64_t time,
                       u_int16_t vlan_id,
                       const struct ndpi_iphdr *iph,
@@ -722,7 +716,7 @@ static void updateFlowFeatures(u_int16_t thread_id,
                       u_int16_t ipsize,
                       u_int16_t rawsize) {
 
-    if(flow->packets<HOGZILLA_MAX_NDPI_FLOWS)
+    if(flow->packets<HOGZILLA_MAX_NDPI_PKT_PER_FLOW)
     {
         flow->inter_time[flow->packets] = time - flow->last_seen;
         flow->packet_size[flow->packets]=rawsize;
@@ -758,7 +752,7 @@ static void updateFlowFeatures(u_int16_t thread_id,
 }
 /* ***************************************************** */
 
-static ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *header, const u_char *packet) {
+static struct ndpi_flow * packet_processing_by_pcap(const struct pcap_pkthdr *header, const u_char *packet) {
   const struct ndpi_ethhdr *ethernet;
   struct ndpi_iphdr *iph;
   struct ndpi_ip6_hdr *iph6;
@@ -769,10 +763,6 @@ static ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *header, co
 
   // printf("[ndpiReader] pcap_packet_callback : [%u.%u.%u.%u.%u -> %u.%u.%u.%u.%u]\n", ethernet->h_dest[1],ethernet->h_dest[2],ethernet->h_dest[3],ethernet->h_dest[4],ethernet->h_dest[5],ethernet->h_source[1],ethernet->h_source[2],ethernet->h_source[3],ethernet->h_source[4],ethernet->h_source[5]);
 
-  }
-
-  if (!pcap_start.tv_sec) pcap_start.tv_sec = header->ts.tv_sec, pcap_start.tv_usec = header->ts.tv_usec;
-  pcap_end.tv_sec = header->ts.tv_sec, pcap_end.tv_usec = header->ts.tv_usec;
 
   time = ((uint64_t) header->ts.tv_sec) * detection_tick_resolution +
     header->ts.tv_usec / (1000000 / detection_tick_resolution);
@@ -783,22 +773,22 @@ static ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *header, co
   }
   ndpi_info.last_time = time;
 
-  if(ndpi_info._pcap_datalink_type == DLT_NULL) {
+  //if(ndpi_info._pcap_datalink_type == DLT_NULL) {
     if(ntohl(*((u_int32_t*)packet)) == 2)
       type = ETH_P_IP;
     else
       type = 0x86DD; /* IPv6 */
 
     ip_offset = 4;
-  } else if(ndpi_info._pcap_datalink_type == DLT_EN10MB) {
-    ethernet = (struct ndpi_ethhdr *) packet;
-    ip_offset = sizeof(struct ndpi_ethhdr);
-    type = ntohs(ethernet->h_proto);
-  } else if(ndpi_info._pcap_datalink_type == 113 /* Linux Cooked Capture */) {
-    type = (packet[14] << 8) + packet[15];
-    ip_offset = 16;
-  } else
-    return;
+  //} else if(ndpi_info._pcap_datalink_type == DLT_EN10MB) {
+  //  ethernet = (struct ndpi_ethhdr *) packet;
+  //  ip_offset = sizeof(struct ndpi_ethhdr);
+  //  type = ntohs(ethernet->h_proto);
+  //} else if(ndpi_info._pcap_datalink_type == 113 /* Linux Cooked Capture */) {
+  //  type = (packet[14] << 8) + packet[15];
+  //  ip_offset = 16;
+  //} else
+  //  return;
 
   while(1) {
     if(type == 0x8100 /* VLAN */) {
@@ -809,7 +799,6 @@ static ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *header, co
     } else if(type == 0x8847 /* MPLS */) {
       u_int32_t label = ntohl(*((u_int32_t*)&packet[ip_offset]));
 
-      ndpi_info.stats.mpls_count++;
       type = 0x800, ip_offset += 4;
 
       while((label & 0x100) != 0x100) {
@@ -817,14 +806,12 @@ static ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *header, co
 	label = ntohl(*((u_int32_t*)&packet[ip_offset]));
       }
     } else if(type == 0x8864 /* PPPoE */) {
-      ndpi_info.stats.pppoe_count++;
       type = 0x0800;
       ip_offset += 8;
     } else
       break;
   }
 
-  ndpi_info.stats.vlan_count += vlan_packet;
 
   iph = (struct ndpi_iphdr *) &packet[ip_offset];
 
@@ -837,8 +824,8 @@ static ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *header, co
       static u_int8_t cap_warning_used = 0;
 
       if(cap_warning_used == 0) {
-	if((!json_flag) && (!quiet_mode)) printf("\n\nWARNING: packet capture size is smaller than packet size, DETECTION MIGHT NOT WORK CORRECTLY\n\n");
-	cap_warning_used = 1;
+	    printf("\n\nWARNING: packet capture size is smaller than packet size, DETECTION MIGHT NOT WORK CORRECTLY\n\n");
+	    cap_warning_used = 1;
       }
     }
   }
@@ -850,13 +837,11 @@ static ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *header, co
     if((frag_off & 0x3FFF) != 0) {
       static u_int8_t ipv4_frags_warning_used = 0;
 
-      ndpi_info.stats.fragmented_count++;
       if(ipv4_frags_warning_used == 0) {
-	if((!json_flag) && (!quiet_mode)) printf("\n\nWARNING: IPv4 fragments are not handled by this demo (nDPI supports them)\n");
-	ipv4_frags_warning_used = 1;
+         printf("\n\nWARNING: IPv4 fragments are not handled by this demo (nDPI supports them)\n");
+	     ipv4_frags_warning_used = 1;
       }
 
-      ndpi_info.stats.total_discarded_bytes +=  header->len;
       return;
     }
   } else if(iph->version == 6) {
@@ -877,11 +862,10 @@ static ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *header, co
 
   v4_warning:
     if(ipv4_warning_used == 0) {
-      if((!json_flag) && (!quiet_mode)) printf("\n\nWARNING: only IPv4/IPv6 packets are supported in this demo (nDPI supports both IPv4 and IPv6), all other packets will be discarded\n\n");
+      printf("\n\nWARNING: only IPv4/IPv6 packets are supported in this demo (nDPI supports both IPv4 and IPv6), all other packets will be discarded\n\n");
       ipv4_warning_used = 1;
     }
 
-    ndpi_info.stats.total_discarded_bytes +=  header->len;
     return;
   }
 
@@ -913,8 +897,7 @@ static ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *header, co
   }
 
   // process the packet
-  return packet_processing(time, vlan_id, iph, iph6,
-		    ip_offset, header->len - ip_offset, header->len);
+  return packet_processing(time, vlan_id, iph, iph6, ip_offset, header->len - ip_offset, header->len);
 }
 
 //
@@ -922,7 +905,7 @@ static ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *header, co
 
 /* ***************************************************** */
 // ipsize = header->len - ip_offset ; rawsize = header->len
-static ndpi_flow * packet_processing( const u_int64_t time,
+static struct ndpi_flow * packet_processing( const u_int64_t time,
 				      u_int16_t vlan_id,
 				      const struct ndpi_iphdr *iph,
 				      struct ndpi_ip6_hdr *iph6,
@@ -944,22 +927,23 @@ static ndpi_flow * packet_processing( const u_int64_t time,
      updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize);
      ndpi_flow = flow->ndpi_flow;
   } else {
-    return(0);
+    return NULL;
   }
 
   // TODO HZ
   // Interou 500 pacotes, salva no HBASE
-  if( flow->packets == HOGZILLA_MAX_NDPI_FLOWS)
-  { HogzillaSaveFlow(flow); /*salva no HBASE*/return(0);}
+  if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW)
+  { HogzillaSaveFlow(flow); /*salva no HBASE*/return &flow;}
   
   // TODO HZ
   // Conexão acabou? salva no HBASE e tira da árvore
-   if( packet->tcp->fin == 1 || packet->tcp->rst == 1 )
-   {
-       HogzillaSaveFlow(flow); 
-   }
+   //if( packet->tcp->fin == 1 || packet->tcp->rst == 1 )
+   // if( packet->tcp->fin == 1 || packet->tcp->rst == 1 )
+   // {
+   //     HogzillaSaveFlow(flow); 
+   // }
 
-  if(flow->detection_completed) return(0);
+  if(flow->detection_completed) return &flow;
 
   flow->detected_protocol = ndpi_detection_process_packet(ndpi_info.ndpi_struct, ndpi_flow,
 							  iph ? (uint8_t *)iph : (uint8_t *)iph6,
@@ -1007,16 +991,16 @@ static ndpi_flow * packet_processing( const u_int64_t time,
 
     free_ndpi_flow(flow);
 
-    if(verbose > 1) {
-      if(enable_protocol_guess) {
-	if(flow->detected_protocol.protocol == NDPI_PROTOCOL_UNKNOWN) {
-	  flow->detected_protocol.protocol = node_guess_undetected_protocol(thread_id, flow),
-	    flow->detected_protocol.master_protocol = NDPI_PROTOCOL_UNKNOWN;
-	}
-      }
+   //  if(verbose > 1) {
+   //    if(enable_protocol_guess) {
+   //  if(flow->detected_protocol.protocol == NDPI_PROTOCOL_UNKNOWN) {
+   //    flow->detected_protocol.protocol = node_guess_undetected_protocol(thread_id, flow),
+   //      flow->detected_protocol.master_protocol = NDPI_PROTOCOL_UNKNOWN;
+   //  }
+   //    }
 
-      printFlow(thread_id, flow);
-    }
+   //    printFlow(thread_id, flow);
+   //  }
   }
 
 #if 0
@@ -1027,7 +1011,7 @@ static ndpi_flow * packet_processing( const u_int64_t time,
   // TODO HZ:
   if(ndpi_info.last_idle_scan_time + IDLE_SCAN_PERIOD < ndpi_info.last_time) {
     /* scan for idle flows */
-    ndpi_twalk(ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_idle_scan_walker, &thread_id);
+    ndpi_twalk(ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_idle_scan_walker,NULL);
 
     /* remove idle flows (unfortunately we cannot do this inline) */
     while (ndpi_info.num_idle_flows > 0)
@@ -1038,44 +1022,17 @@ static ndpi_flow * packet_processing( const u_int64_t time,
     ndpi_info.last_idle_scan_time = ndpi_info.last_time;
   }
 
-  return 0;
+  return &flow;
 }
 
-void HogzillaSaveFlow(flow)
-{
-  // Salvar no HBASE
-  //   . Ver se tá conectado, senao conecta
-     HogzillaHBase * hbase = connectHBase();
 
-     GPtrArray *lista ;
-     lista = g_ptr_array_new ();
-     GHashTable * attributes = g_hash_table_new(g_str_hash, g_str_equal);
-     GPtrArray * mutations;
-     mutations = g_ptr_array_new ();
-     
-     Mutation * mutation;
-     Hogzilla_mutations(&flow,&mutations);
-     
-     Text * tabela = g_byte_array_new ();
-     g_byte_array_append (tabela, (guint8*) "hogzilla_flows", 14);
-
-     Text * chave ;
-     //TODO HZ: encontrar uma chave única melhor para cada flow
-     sprintf(str, "%d.%d", flow->first_seen,flow->lower_ip) ;
-     chave = g_byte_array_new ();
-     g_byte_array_append (chave,(guint8*) str,  strlen(str));
-
-     hbase_client_mutate_row (client, tabela, chave, mutations,attributes, &ioerror, &iargument, &error);
-     //TODO HZ:  Trata os errors ioerror, iargument, error
-}
-
-static struct HogzillaHBase *connectHBase()
+HogzillaHBase *connectHBase()
 {
 
   // Verifica se está aberta ou não
   if(false){}
 
-  HogzillaHBase hbase;
+  HogzillaHBase *hbase;
   hbase = (HogzillaHBase *) SnortAlloc(sizeof(HogzillaHBase));
 
 #if (!GLIB_CHECK_VERSION (2, 36, 0))
@@ -1087,32 +1044,26 @@ static struct HogzillaHBase *connectHBase()
                             "port",      hogzilla_ptr->hbase_port,
                             NULL);
   hbase->transport = g_object_new (THRIFT_TYPE_BUFFERED_TRANSPORT,
-                            "transport", socket,
+                            "transport", hbase->socket,
                             NULL);
   hbase->protocol  = g_object_new (THRIFT_TYPE_BINARY_PROTOCOL,
-                            "transport", transport,
+                            "transport", hbase->transport,
                             NULL);
 
-  thrift_transport_open (transport, &error);
+  thrift_transport_open (hbase->transport, &hbase->error);
 
   hbase->client = g_object_new (TYPE_HBASE_CLIENT,
-                         "input_protocol",  protocol,
-                         "output_protocol", protocol,
+                         "input_protocol",  hbase->protocol,
+                         "output_protocol", hbase->protocol,
                          NULL);
-  return hbase;
+  return &hbase;
 }
 
-void closeHBase()
-{
-  thrift_transport_close (transport, NULL);
-  g_object_unref (hbase->client);
-  g_object_unref (hbase->protocol);
-  g_object_unref (hbase->transport);
-  g_object_unref (hbase->socket);
-}
 
-void Hogzilla_mutations(ndpi_flow *flow, Mutation *mutation)
+void Hogzilla_mutations(struct ndpi_flow *flow, GPtrArray * mutations)
 {
+
+Mutation *mutation;
 
 // lower_ip
 mutation = g_object_new (TYPE_MUTATION, NULL);
@@ -1300,3 +1251,61 @@ g_ptr_array_add (mutations, mutation);
 
 }
 
+
+/*
+ * Function: PreprocFunction(Packet *)
+ *
+ * Purpose: Perform the preprocessor's intended function.  This can be
+ *          simple (statistics collection) or complex (IP defragmentation)
+ *          as you like.  Try not to destroy the performance of the whole
+ *          system by trying to do too much....
+ *
+ * Arguments: p => pointer to the current packet data struct 
+ *
+ * Returns: void function
+ */
+static void Hogzilla(Packet *p, void *event, uint32_t event_type, void *arg)
+{
+
+   uint32_t event_id;
+   struct ndpi_flow *flow; 
+
+// Processar na nDPI
+//    . lá na nDPI, quando ocorrer uma das abaixo, o flow deve ser salvo no HBASE
+//       i  ) Conexão terminou
+//       ii ) Atingiu 500 pacotes no fluxo
+//       iii) A conexão ficou IDLE por mais de HOGZILLA_MAX_IDLE_TIME
+
+   if(event!=NULL)
+   {
+       event_id = ntohl(((Unified2EventCommon *)event)->event_id);
+       ndpi_info->eventById[event_id]= &event;
+   }else
+   {
+       // TODO HZ:
+       // A partir de *p, criar chamada para a função abaixo
+       flow=packet_processing_by_pcap( p->pkth, p->pkt);
+       flow->event=ndpi_info->eventById[p->event_id];
+   }
+
+   //OU
+       flow=packet_processing_by_pcap( p->pkth, p->pkt);
+       if(event!=NULL)
+          flow->event=event;
+
+// Deixe aqui por enquanto, pode ser necessário no futuro.
+//    if(p)
+//    {
+//        if(p->packet_flags & PKT_REBUILT_STREAM)
+//        {
+//            HogzillaStream(p, event, event_type, arg);
+//        }
+//        else
+//        {
+//            HogzillaSingle(p, event, event_type, arg);
+//        }
+//    }
+}
+
+
+//
