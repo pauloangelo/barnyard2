@@ -30,7 +30,9 @@ util.c util.h
 
 barnyard2_LDADD = output-plugins/libspo.a \
 input-plugins/libspi.a \
-sfutil/libsfutil.a
+sfutil/libsfutil.a \
+output-plugins/hogzilla/hbase.o \
+output-plugins/hogzilla/hbase_types.o
 
 SUBDIRS = sfutil output-plugins input-plugins
 
