@@ -3,6 +3,8 @@
 for i in `cat << EOF
 flow:lower_ip|u_int32_t|lower_ip
 flow:upper_ip|u_int32_t|upper_ip
+flow:lower_name|char|lower_name
+flow:upper_name|char|upper_name
 flow:lower_port|u_int16_t|lower_port
 flow:upper_port|u_int16_t|upper_port
 flow:protocol|u_int8_t|protocol
@@ -29,14 +31,26 @@ do
 namehbase=`echo $i | cut -d'|' -f1`
 typec=`echo $i | cut -d'|' -f2`
 namec=`echo $i | cut -d'|' -f3`
-sizenamehbase=`echo -n $i | wc -c`
+sizenamehbase=`echo $i | cut -d'|' -f1 | wc -c`
+sizenamehbase=$(($sizenamehbase-1))
+
+if [ $typec == "char" ]; then
+  typecSIZE="strlen(flow->$namec)"
+  ast="*"
+  ecom=""
+else
+  typecSIZE="sizeof($typec)"
+  ast=""
+  ecom="&"
+fi
+
 cat << EOF 
 // $namec
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "$namehbase", $sizenamehbase);
-g_byte_array_append (mutation->value ,(guint8*) flow->$namec,  sizeof($typec));
+g_byte_array_append (mutation->value ,(guint8*${ast}) ${ecom}flow->$namec,  $typecSIZE);
 g_ptr_array_add (mutations, mutation);
 
 EOF
