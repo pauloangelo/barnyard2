@@ -570,7 +570,7 @@ LogMessage("DEBUG => [Hogzilla] ID: %s , %s:%u <-> %s:%u \n", str,flow->lower_na
      }
 
      //TODO HZ:  Trata os errors ioerror, iargument, error
-     closeHBase();
+     //closeHBase();
 }
 
 /* ***************************************************** */
@@ -832,6 +832,9 @@ static void updateFlowFeatures(struct ndpi_flow *flow,
                       u_int16_t ipsize,
                       u_int16_t rawsize) {
 
+    if(flow->packets==0)
+        flow->last_seen = time;
+
     if(flow->packets<HOGZILLA_MAX_NDPI_PKT_PER_FLOW)
     {
         flow->inter_time[flow->packets] = time - flow->last_seen;
@@ -1070,18 +1073,8 @@ static struct ndpi_flow *packet_processing( const u_int64_t time,
      || ((proto == IPPROTO_TCP) && (flow->packets > 10))) {
     flow->detection_completed = 1;
 
-    // TODO HZ: Foi comentado pq não está compilando
-    // /bin/bash ../libtool  --tag=CC   --mode=link gcc  -g -O0 -fno-strict-aliasing -Wall  -L/usr/lib/x86_64-linux-gnu -o barnyard2 barnyard2.o debug.o decode.o log.o log_text.o map.o
-    //  mstring.o parser.o plugbase.o spooler.o strlcatu.o strlcpyu.o twofish.o util.o output-plugins/libspo.a input-plugins/libspi.a sfutil/libsfutil.a output-plugins/hogzilla/hbase.o
-    //   output-plugins/hogzilla/hbase_types.o -lmysqlclient -lz -lpcap -lnsl -lm -lm  -lgobject-2.0 -lglib-2.0 -lthrift_c_glib -lndpi 
-    //   libtool: link: gcc -g -O0 -fno-strict-aliasing -Wall -o barnyard2 barnyard2.o debug.o decode.o log.o log_text.o map.o mstring.o parser.o plugbase.o spooler.o strlcatu.o strlcpyu
-    //   .o twofish.o util.o output-plugins/hogzilla/hbase.o output-plugins/hogzilla/hbase_types.o  -L/usr/lib/x86_64-linux-gnu output-plugins/libspo.a input-plugins/libspi.a sfutil/libs
-    //   futil.a -lmysqlclient -lz -lpcap -lnsl -lm -lgobject-2.0 -lglib-2.0 -lthrift_c_glib -lndpi
-    //   output-plugins/libspo.a(spo_hogzilla.o): In function `packet_processing':
-    //   /tmp/barnyard2/src/output-plugins/spo_hogzilla.c:967: undefined reference to `ndpi_set_detected_protocol'
-    //
-    //if((flow->detected_protocol.protocol == NDPI_PROTOCOL_UNKNOWN) && (ndpi_flow->num_stun_udp_pkts > 0))
-     // ndpi_set_detected_protocol(ndpi_info.ndpi_struct, ndpi_flow, NDPI_PROTOCOL_STUN, NDPI_PROTOCOL_UNKNOWN);
+    if((flow->detected_protocol.protocol == NDPI_PROTOCOL_UNKNOWN) && (ndpi_flow->num_stun_udp_pkts > 0))
+      ndpi_set_detected_protocol(ndpi_info.ndpi_struct, ndpi_flow, NDPI_PROTOCOL_STUN, NDPI_PROTOCOL_UNKNOWN);
 
     snprintf(flow->host_server_name, sizeof(flow->host_server_name), "%s", flow->ndpi_flow->host_server_name);
 
@@ -1156,7 +1149,7 @@ struct HogzillaHBase *connectHBase()
 {
 
   // Verifica se está aberta ou não
-  if(false){}
+  if(hbase != NULL){return hbase;}
 
   //struct HogzillaHBase *hbase;
   hbase = (HogzillaHBase*) SnortAlloc(sizeof(HogzillaHBase));
@@ -1315,7 +1308,7 @@ g_byte_array_append (mutation->value ,(guint8**) text[7], strlen(text[7]));
 g_ptr_array_add (mutations, mutation);
 
 // max_packet_size
-sprintf(text[8], "%d", flow->first_seen);
+sprintf(text[8], "%d", flow->max_packet_size);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
@@ -1405,24 +1398,24 @@ g_byte_array_append (mutation->value ,(guint8**) text[17], strlen(text[17]));
 g_ptr_array_add (mutations, mutation);
 
 // detected_protocol
-//if(flow->detected_protocol.master_protocol) {
-// char buf[64];
-//
-// sprintf(text[18], "%u.%u/%s",
-//  flow->detected_protocol.master_protocol, flow->detected_protocol.protocol,
-//  ndpi_protocol2name(ndpi_info.ndpi_struct,flow->detected_protocol, buf, sizeof(buf)));
-//} else
-//{
-// sprintf(text[18], "%u/%s",
-// flow->detected_protocol.protocol,
-// ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.protocol));
-//}
-//mutation = g_object_new (TYPE_MUTATION, NULL);
-//mutation->column = g_byte_array_new ();
-//mutation->value  = g_byte_array_new ();
-//g_byte_array_append (mutation->column,(guint8*) "flow:detected_protocol", 22);
-//g_byte_array_append (mutation->value ,(guint8**) text[18],  strlen(text[18]));
-//g_ptr_array_add (mutations, mutation);
+if(flow->detected_protocol.master_protocol) {
+ char buf[64];
+
+ sprintf(text[18], "%u.%u/%s",
+  flow->detected_protocol.master_protocol, flow->detected_protocol.protocol,
+  ndpi_protocol2name(ndpi_info.ndpi_struct,flow->detected_protocol, buf, sizeof(buf)));
+} else
+{
+ sprintf(text[18], "%u/%s",
+ flow->detected_protocol.protocol,
+ ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.protocol));
+}
+mutation = g_object_new (TYPE_MUTATION, NULL);
+mutation->column = g_byte_array_new ();
+mutation->value  = g_byte_array_new ();
+g_byte_array_append (mutation->column,(guint8*) "flow:detected_protocol", 22);
+g_byte_array_append (mutation->value ,(guint8**) text[18],  strlen(text[18]));
+g_ptr_array_add (mutations, mutation);
 
 
 // host_server_name
@@ -1471,7 +1464,7 @@ if(flow->event!=NULL)
     g_byte_array_append (mutation->value ,(guint8**) text[19], strlen(text[19]));
     g_ptr_array_add (mutations, mutation);
 
-    sprintf(text[20], "%d", flow->event->sensor_id);
+    sprintf(text[20], "%u", ntohl(flow->event->event_id));
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1479,7 +1472,7 @@ if(flow->event!=NULL)
     g_byte_array_append (mutation->value ,(guint8**) text[20], strlen(text[20]));
     g_ptr_array_add (mutations, mutation);
 
-    sprintf(text[21], "%d", flow->event->event_second);
+    sprintf(text[21], "%u", ntohl(flow->event->event_second));
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1487,7 +1480,7 @@ if(flow->event!=NULL)
     g_byte_array_append (mutation->value ,(guint8**) text[21], strlen(text[21]));
     g_ptr_array_add (mutations, mutation);
 
-    sprintf(text[22], "%d", flow->event->event_microsecond);
+    sprintf(text[22], "%u", ntohl(flow->event->event_microsecond));
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1495,7 +1488,8 @@ if(flow->event!=NULL)
     g_byte_array_append (mutation->value ,(guint8**) text[22], strlen(text[22]));
     g_ptr_array_add (mutations, mutation);
 
-    sprintf(text[23], "%d", flow->event->signature_id);
+    //sid =  ntohl(((Unified2EventCommon *)event)->signature_id);
+    sprintf(text[23], "%u", ntohl(flow->event->signature_id));
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1503,7 +1497,7 @@ if(flow->event!=NULL)
     g_byte_array_append (mutation->value ,(guint8**) text[23], strlen(text[23]));
     g_ptr_array_add (mutations, mutation);
 
-    sprintf(text[24], "%d", flow->event->generator_id);
+    sprintf(text[24], "%u", ntohl(flow->event->generator_id));
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1511,7 +1505,7 @@ if(flow->event!=NULL)
     g_byte_array_append (mutation->value ,(guint8**) text[24], strlen(text[24]));
     g_ptr_array_add (mutations, mutation);
 
-    sprintf(text[25], "%d", flow->event->classification_id);
+    sprintf(text[25], "%u", ntohl(flow->event->classification_id));
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1519,7 +1513,7 @@ if(flow->event!=NULL)
     g_byte_array_append (mutation->value ,(guint8**) text[25], strlen(text[25]));
     g_ptr_array_add (mutations, mutation);
 
-    sprintf(text[26], "%d", flow->event->priority_id);
+    sprintf(text[26], "%u", ntohl(flow->event->priority_id));
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1586,7 +1580,7 @@ static void Hogzilla(Packet *p, void *event, uint32_t event_type, void *arg)
    //OU
        flow=packet_processing_by_pcap( p->pkth, p->pkt);
        if(flow != NULL && event!=NULL)
-          flow->event=&event;
+          flow->event=event;
 
 // Deixe aqui por enquanto, pode ser necessário no futuro.
 //    if(p)
