@@ -47,7 +47,7 @@
 #define HOGZILLA_MAX_IDLE_TIME 30000
 // TODO HZ: Aumentar isso descomentando
 //#define IDLE_SCAN_PERIOD       10000
-#define IDLE_SCAN_PERIOD       100
+#define IDLE_SCAN_PERIOD       10
 #define GTP_U_V1_PORT        2152
  
 #ifdef HAVE_CONFIG_H
@@ -81,16 +81,16 @@
 
 
 
-// #include <sched.h>
+#include <sched.h>
 #include <stdio.h>
-// #include <netinet/in.h>
-// #include <stdarg.h>
-// #include <search.h>
+#include <netinet/in.h>
+#include <stdarg.h>
+#include <search.h>
 #include <signal.h>
 #include <sys/time.h>
 #include <inttypes.h>
 #include "ndpi_api.h"
-// #include <sys/socket.h>
+#include <sys/socket.h>
 
 #include <glib-object.h>
 
@@ -457,6 +457,36 @@ typedef struct ndpi_flow {
 } ndpi_flow_t;
 
 
+static char* ipProto2Name(u_short proto_id) {
+  static char proto[8];
+
+  switch(proto_id) {
+  case IPPROTO_TCP:
+    return("TCP");
+    break;
+  case IPPROTO_UDP:
+    return("UDP");
+    break;
+  case IPPROTO_ICMP:
+    return("ICMP");
+    break;
+  case IPPROTO_ICMPV6:
+    return("ICMPV6");
+    break;
+  case 112:
+    return("VRRP");
+    break;
+  case IPPROTO_IGMP:
+    return("IGMP");
+    break;
+  }
+
+  snprintf(proto, sizeof(proto), "%u", proto_id);
+  return(proto);
+}
+
+/* ***************************************************** */
+
 
 static u_int16_t node_guess_undetected_protocol(struct ndpi_flow *flow) {
   flow->detected_protocol = ndpi_guess_undetected_protocol(ndpi_info.ndpi_struct,
@@ -510,7 +540,6 @@ void HogzillaSaveFlow(struct ndpi_flow *flow)
      
      Hogzilla_mutations(flow,mutations);
 
-
 // Mutation *mutation;
 // mutation = g_object_new (TYPE_MUTATION, NULL);
 // mutation->column = g_byte_array_new ();
@@ -525,8 +554,8 @@ void HogzillaSaveFlow(struct ndpi_flow *flow)
 
      //TODO HZ: encontrar uma chave única melhor para cada flow
       sprintf(str, "%lld.%lld", flow->first_seen,flow->lower_ip) ;
-LogMessage("DEBUG => [Hogzilla] ID: %s , %s:%u <-> %s:%u \n", str,flow->lower_name,ntohs(flow->lower_port),flow->upper_name,ntohs(flow->upper_port));
      Text * chave ;
+LogMessage("DEBUG => [Hogzilla] ID: %s , %s:%u <-> %s:%u \n", str,flow->lower_name,ntohs(flow->lower_port),flow->upper_name,ntohs(flow->upper_port));
      chave = g_byte_array_new ();
      g_byte_array_append (chave,(guint8*) str,  strlen(str));
 
@@ -541,6 +570,7 @@ LogMessage("DEBUG => [Hogzilla] ID: %s , %s:%u <-> %s:%u \n", str,flow->lower_na
      }
 
      //TODO HZ:  Trata os errors ioerror, iargument, error
+     closeHBase();
 }
 
 /* ***************************************************** */
@@ -1159,6 +1189,8 @@ struct HogzillaHBase *connectHBase()
 void Hogzilla_mutations(struct ndpi_flow *flow, GPtrArray * mutations)
 {
 
+char text[29][50];
+
 Mutation *mutation;
 //Mutation * mutation;
 //mutation = g_object_new (TYPE_MUTATION, NULL);
@@ -1202,164 +1234,196 @@ g_byte_array_append (mutation->value ,(guint8**) flow->upper_name,  strlen(flow-
 g_ptr_array_add (mutations, mutation);
 
 // lower_port
+sprintf(text[0], "%d", ntohs(flow->lower_port)) ;
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:lower_port", 15);
-g_byte_array_append (mutation->value ,(guint8*) &flow->lower_port,  sizeof(u_int16_t));
+g_byte_array_append (mutation->value ,(guint8**) text[0],  strlen(text[0]));
 g_ptr_array_add (mutations, mutation);
 
 // upper_port
+sprintf(text[1], "%d", ntohs(flow->upper_port)) ;
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:upper_port", 15);
-g_byte_array_append (mutation->value ,(guint8*) &flow->upper_port,  sizeof(u_int16_t));
+g_byte_array_append (mutation->value ,(guint8**) text[1],  strlen(text[1]));
 g_ptr_array_add (mutations, mutation);
 
 // protocol
+char * proto = ipProto2Name(flow->protocol);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:protocol", 13);
-g_byte_array_append (mutation->value ,(guint8*) &flow->protocol,  sizeof(u_int8_t));
+g_byte_array_append (mutation->value ,(guint8*) proto,  strlen(proto));
 g_ptr_array_add (mutations, mutation);
 
 // vlan_id
+sprintf(text[2], "%d", flow->vlan_id);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:vlan_id", 12);
-g_byte_array_append (mutation->value ,(guint8*) &flow->vlan_id,  sizeof(u_int16_t));
+g_byte_array_append (mutation->value ,(guint8**) text[2], strlen(text[2]));
 g_ptr_array_add (mutations, mutation);
 
 // last_seen
+sprintf(text[3], "%ld", flow->last_seen);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:last_seen", 14);
-g_byte_array_append (mutation->value ,(guint8*) &flow->last_seen,  sizeof(u_int64_t));
+g_byte_array_append (mutation->value ,(guint8**) text[3], strlen(text[3]));
 g_ptr_array_add (mutations, mutation);
 
 // bytes
+sprintf(text[4], "%ld", flow->bytes);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:bytes", 10);
-g_byte_array_append (mutation->value ,(guint8*) &flow->bytes,  sizeof(u_int64_t));
+g_byte_array_append (mutation->value ,(guint8**) text[4], strlen(text[4]));
 g_ptr_array_add (mutations, mutation);
 
 // packets
+sprintf(text[5], "%d", flow->packets);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:packets", 12);
-g_byte_array_append (mutation->value ,(guint8*) &flow->packets,  sizeof(u_int32_t));
+g_byte_array_append (mutation->value ,(guint8**) text[5], strlen(text[5]));
 g_ptr_array_add (mutations, mutation);
 
 // flow_duration
+sprintf(text[6], "%ld", flow->flow_duration);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:flow_duration", 18);
-g_byte_array_append (mutation->value ,(guint8*) &flow->flow_duration,  sizeof(u_int64_t));
+g_byte_array_append (mutation->value ,(guint8**) text[6], strlen(text[6]));
 g_ptr_array_add (mutations, mutation);
 
 // first_seen
+sprintf(text[7], "%ld", flow->first_seen);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:first_seen", 15);
-g_byte_array_append (mutation->value ,(guint8*) &flow->first_seen,  sizeof(u_int64_t));
+g_byte_array_append (mutation->value ,(guint8**) text[7], strlen(text[7]));
 g_ptr_array_add (mutations, mutation);
 
 // max_packet_size
+sprintf(text[8], "%d", flow->first_seen);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:max_packet_size", 20);
-g_byte_array_append (mutation->value ,(guint8*) &flow->max_packet_size,  sizeof(u_int32_t));
+g_byte_array_append (mutation->value ,(guint8**) text[8], strlen(text[8]));
 g_ptr_array_add (mutations, mutation);
 
 // min_packet_size
+sprintf(text[9], "%d", flow->min_packet_size);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:min_packet_size", 20);
-g_byte_array_append (mutation->value ,(guint8*) &flow->min_packet_size,  sizeof(u_int32_t));
+g_byte_array_append (mutation->value ,(guint8**) text[9], strlen(text[9]));
 g_ptr_array_add (mutations, mutation);
 
 // avg_packet_size
+sprintf(text[10], "%d", flow->avg_packet_size);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:avg_packet_size", 20);
-g_byte_array_append (mutation->value ,(guint8*) &flow->avg_packet_size,  sizeof(u_int32_t));
+g_byte_array_append (mutation->value ,(guint8**) text[10], strlen(text[10]));
 g_ptr_array_add (mutations, mutation);
 
 // payload_bytes
+sprintf(text[11], "%ld", flow->payload_bytes);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:payload_bytes", 18);
-g_byte_array_append (mutation->value ,(guint8*) &flow->payload_bytes,  sizeof(u_int64_t));
+g_byte_array_append (mutation->value ,(guint8**) text[11], strlen(text[11]));
 g_ptr_array_add (mutations, mutation);
 
 // payload_first_size
+sprintf(text[12], "%d", flow->payload_first_size);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:payload_first_size", 23);
-g_byte_array_append (mutation->value ,(guint8*) &flow->payload_first_size,  sizeof(u_int32_t));
+g_byte_array_append (mutation->value ,(guint8**) text[12], strlen(text[12]));
 g_ptr_array_add (mutations, mutation);
 
 // payload_avg_size
+sprintf(text[13], "%d", flow->payload_avg_size);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:payload_avg_size", 21);
-g_byte_array_append (mutation->value ,(guint8*) &flow->payload_avg_size,  sizeof(u_int32_t));
+g_byte_array_append (mutation->value ,(guint8**) text[13], strlen(text[13]));
 g_ptr_array_add (mutations, mutation);
 
 // payload_min_size
+sprintf(text[14], "%d", flow->payload_min_size);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:payload_min_size", 21);
-g_byte_array_append (mutation->value ,(guint8*) &flow->payload_min_size,  sizeof(u_int32_t));
+g_byte_array_append (mutation->value ,(guint8**) text[14], strlen(text[14]));
 g_ptr_array_add (mutations, mutation);
 
 // payload_max_size
+sprintf(text[15], "%d", flow->payload_max_size);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:payload_max_size", 21);
-g_byte_array_append (mutation->value ,(guint8*) &flow->payload_max_size,  sizeof(u_int32_t));
+g_byte_array_append (mutation->value ,(guint8**) text[15], strlen(text[15]));
 g_ptr_array_add (mutations, mutation);
 
 // packets_without_payload
+sprintf(text[16], "%d", flow->packets_without_payload);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:packets_without_payload", 28);
-g_byte_array_append (mutation->value ,(guint8*) &flow->packets_without_payload,  sizeof(u_int32_t));
+g_byte_array_append (mutation->value ,(guint8**) text[16], strlen(text[16]));
 g_ptr_array_add (mutations, mutation);
 
 // detection_completed
+sprintf(text[17], "%d", flow->detection_completed);
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
 mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:detection_completed", 24);
-g_byte_array_append (mutation->value ,(guint8*) &flow->detection_completed,  sizeof(u_int8_t));
+g_byte_array_append (mutation->value ,(guint8**) text[17], strlen(text[17]));
 g_ptr_array_add (mutations, mutation);
 
-// // detected_protocol
-// mutation = g_object_new (TYPE_MUTATION, NULL);
-// mutation->column = g_byte_array_new ();
-// mutation->value  = g_byte_array_new ();
-// g_byte_array_append (mutation->column,(guint8*) "flow:detected_protocol", 22);
-// g_byte_array_append (mutation->value ,(guint8*) &flow->detected_protocol,  sizeof(u_int32_t));
-// g_ptr_array_add (mutations, mutation);
+// detected_protocol
+//if(flow->detected_protocol.master_protocol) {
+// char buf[64];
+//
+// sprintf(text[18], "%u.%u/%s",
+//  flow->detected_protocol.master_protocol, flow->detected_protocol.protocol,
+//  ndpi_protocol2name(ndpi_info.ndpi_struct,flow->detected_protocol, buf, sizeof(buf)));
+//} else
+//{
+// sprintf(text[18], "%u/%s",
+// flow->detected_protocol.protocol,
+// ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.protocol));
+//}
+//mutation = g_object_new (TYPE_MUTATION, NULL);
+//mutation->column = g_byte_array_new ();
+//mutation->value  = g_byte_array_new ();
+//g_byte_array_append (mutation->column,(guint8*) "flow:detected_protocol", 22);
+//g_byte_array_append (mutation->value ,(guint8**) text[18],  strlen(text[18]));
+//g_ptr_array_add (mutations, mutation);
+
 
 // host_server_name
 mutation = g_object_new (TYPE_MUTATION, NULL);
@@ -1369,7 +1433,117 @@ g_byte_array_append (mutation->column,(guint8*) "flow:host_server_name", 21);
 g_byte_array_append (mutation->value ,(guint8**) flow->host_server_name,  strlen(flow->host_server_name));
 g_ptr_array_add (mutations, mutation);
 
+// Packets
+int i;
+for(i=0;i<flow->packets && i<sizeof(flow->inter_time);i++)
+{
+   char itime[10];
+   char psize[10];
+   char itimename[25];
+   char psizename[25];
+   sprintf(itime, "%d", flow->inter_time[i]);
+   sprintf(psize, "%d", flow->packet_size[i]);
+   sprintf(itimename, "flow:inter_time-%d", i);
+   sprintf(psizename, "flow:packet_size-%d", i);
 
+   mutation = g_object_new (TYPE_MUTATION, NULL);
+   mutation->column = g_byte_array_new ();
+   mutation->value  = g_byte_array_new ();
+   g_byte_array_append (mutation->column,(guint8**) itimename, strlen(itimename));
+   g_byte_array_append (mutation->value ,(guint8**) itime,  strlen(itime));
+   g_ptr_array_add (mutations, mutation);
+
+   mutation = g_object_new (TYPE_MUTATION, NULL);
+   mutation->column = g_byte_array_new ();
+   mutation->value  = g_byte_array_new ();
+   g_byte_array_append (mutation->column,(guint8**) psizename, strlen(psizename));
+   g_byte_array_append (mutation->value ,(guint8**) psize,  strlen(psize));
+   g_ptr_array_add (mutations, mutation);
+}
+
+if(flow->event!=NULL)
+{
+    sprintf(text[19], "%d", flow->event->sensor_id);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "event:sensor_id", 15);
+    g_byte_array_append (mutation->value ,(guint8**) text[19], strlen(text[19]));
+    g_ptr_array_add (mutations, mutation);
+
+    sprintf(text[20], "%d", flow->event->sensor_id);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "event:event_id", 14);
+    g_byte_array_append (mutation->value ,(guint8**) text[20], strlen(text[20]));
+    g_ptr_array_add (mutations, mutation);
+
+    sprintf(text[21], "%d", flow->event->event_second);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "event:event_second", 18);
+    g_byte_array_append (mutation->value ,(guint8**) text[21], strlen(text[21]));
+    g_ptr_array_add (mutations, mutation);
+
+    sprintf(text[22], "%d", flow->event->event_microsecond);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "event:event_microsecond", 23);
+    g_byte_array_append (mutation->value ,(guint8**) text[22], strlen(text[22]));
+    g_ptr_array_add (mutations, mutation);
+
+    sprintf(text[23], "%d", flow->event->signature_id);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "event:signature_id", 18);
+    g_byte_array_append (mutation->value ,(guint8**) text[23], strlen(text[23]));
+    g_ptr_array_add (mutations, mutation);
+
+    sprintf(text[24], "%d", flow->event->generator_id);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "event:generator_id", 18);
+    g_byte_array_append (mutation->value ,(guint8**) text[24], strlen(text[24]));
+    g_ptr_array_add (mutations, mutation);
+
+    sprintf(text[25], "%d", flow->event->classification_id);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "event:classification_id", 23);
+    g_byte_array_append (mutation->value ,(guint8**) text[25], strlen(text[25]));
+    g_ptr_array_add (mutations, mutation);
+
+    sprintf(text[26], "%d", flow->event->priority_id);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "event:priority_id", 17);
+    g_byte_array_append (mutation->value ,(guint8**) text[26], strlen(text[26]));
+    g_ptr_array_add (mutations, mutation);
+
+
+}
+
+  //Unified2EventCommon *event;
+  //typedef struct _Unified2EventCommon
+  //{
+  //   uint32_t sensor_id;
+  //   uint32_t event_id;
+  //   uint32_t event_second;
+  //   uint32_t event_microsecond;
+  //   uint32_t signature_id;
+  //   uint32_t generator_id;
+  //   uint32_t signature_revision;
+  //   uint32_t classification_id;
+  //   uint32_t priority_id;
+  //} Unified2EventCommon;
+  //
 }
 
 
@@ -1408,6 +1582,7 @@ static void Hogzilla(Packet *p, void *event, uint32_t event_type, void *arg)
    //     flow->event=ndpi_info.eventById[p->event_id];
    // }
 
+//LogMessage("DEBUG => [Hogzilla] Line %d in file %s\n", __LINE__, __FILE__);
    //OU
        flow=packet_processing_by_pcap( p->pkth, p->pkt);
        if(flow != NULL && event!=NULL)
@@ -1425,6 +1600,7 @@ static void Hogzilla(Packet *p, void *event, uint32_t event_type, void *arg)
 //            HogzillaSingle(p, event, event_type, arg);
 //        }
 //    }
+//LogMessage("DEBUG => [Hogzilla] Line %d in file %s\n", __LINE__, __FILE__);
 }
 
 
