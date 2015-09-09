@@ -359,6 +359,7 @@ static void closeHBase(void)
   g_object_unref (hbase->protocol);
   g_object_unref (hbase->transport);
   g_object_unref (hbase->socket);
+  hbase = NULL;
 }
 
 /*
@@ -555,11 +556,11 @@ void HogzillaSaveFlow(struct ndpi_flow *flow)
      //TODO HZ: encontrar uma chave única melhor para cada flow
       sprintf(str, "%lld.%lld", flow->first_seen,flow->lower_ip) ;
      Text * chave ;
-LogMessage("DEBUG => [Hogzilla] ID: %s , %s:%u <-> %s:%u \n", str,flow->lower_name,ntohs(flow->lower_port),flow->upper_name,ntohs(flow->upper_port));
+LogMessage("DEBUG => [Hogzilla] ID: %s, %s:%u <-> %s:%u [pkts:%u] \n", str,flow->lower_name,ntohs(flow->lower_port),flow->upper_name,ntohs(flow->upper_port),flow->packets);
      chave = g_byte_array_new ();
      g_byte_array_append (chave,(guint8*) str,  strlen(str));
 
-     if(!hbase_client_mutate_row (hbase->client, tabela, chave, mutations,attributes, &hbase->ioerror, &hbase->iargument, &hbase->error))
+     while(!hbase_client_mutate_row (hbase->client, tabela, chave, mutations,attributes, &hbase->ioerror, &hbase->iargument, &hbase->error))
      {
         if(hbase->error!=NULL)
            LogMessage ("%s\n", hbase->error->message);
@@ -567,10 +568,12 @@ LogMessage("DEBUG => [Hogzilla] ID: %s , %s:%u <-> %s:%u \n", str,flow->lower_na
            LogMessage ("%s\n", hbase->ioerror->message);
         if(hbase->iargument!=NULL)
            LogMessage ("%s\n", hbase->iargument->message);
-     }
 
-     //TODO HZ:  Trata os errors ioerror, iargument, error
-     //closeHBase();
+       LogMessage("DEBUG => [Hogzilla] Error saving the flow below. Reconnecting and trying again...\n\tID: %s, %s:%u <-> %s:%u [pkts:%u] \n", str,flow->lower_name,ntohs(flow->lower_port),flow->upper_name,ntohs(flow->upper_port),flow->packets);
+        closeHBase();
+        sleep(5000);
+        hbase = connectHBase();
+     }
 }
 
 /* ***************************************************** */
