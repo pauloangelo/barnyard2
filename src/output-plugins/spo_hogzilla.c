@@ -46,8 +46,8 @@
 #define HOGZILLA_MAX_EVENT_TABLE 100000
 #define HOGZILLA_MAX_IDLE_TIME 30000
 // TODO HZ: Aumentar isso descomentando
-//#define IDLE_SCAN_PERIOD       10000
-#define IDLE_SCAN_PERIOD       10
+#define IDLE_SCAN_PERIOD       5000 // 5 secs
+//#define IDLE_SCAN_PERIOD       10
 #define GTP_U_V1_PORT        2152
  
 #ifdef HAVE_CONFIG_H
@@ -428,6 +428,7 @@ typedef struct ndpi_flow {
   u_int32_t max_packet_size;
   u_int32_t min_packet_size;
   u_int32_t avg_packet_size;
+  u_int64_t avg_inter_time;
 
   u_int64_t payload_bytes;
   u_int32_t payload_first_size;
@@ -569,9 +570,9 @@ LogMessage("DEBUG => [Hogzilla] ID: %s, %s:%u <-> %s:%u [pkts:%u] \n", str,flow-
         if(hbase->iargument!=NULL)
            LogMessage ("%s\n", hbase->iargument->message);
 
-       LogMessage("DEBUG => [Hogzilla] Error saving the flow below. Reconnecting and trying again...\n\tID: %s, %s:%u <-> %s:%u [pkts:%u] \n", str,flow->lower_name,ntohs(flow->lower_port),flow->upper_name,ntohs(flow->upper_port),flow->packets);
+       LogMessage("DEBUG => [Hogzilla] Error saving the flow below. Reconnecting and trying again in 5 seconds...\n\tID: %s, %s:%u <-> %s:%u [pkts:%u] \n", str,flow->lower_name,ntohs(flow->lower_port),flow->upper_name,ntohs(flow->upper_port),flow->packets);
         closeHBase();
-        sleep(5000);
+        sleep(5);
         hbase = connectHBase();
      }
 }
@@ -843,6 +844,7 @@ static void updateFlowFeatures(struct ndpi_flow *flow,
         flow->inter_time[flow->packets] = time - flow->last_seen;
         flow->packet_size[flow->packets]=rawsize;
         flow->avg_packet_size  = (flow->avg_packet_size*flow->packets  + rawsize)/(flow->packets+1);
+        flow->avg_inter_time  = (flow->avg_inter_time*flow->packets  + (time - flow->last_seen))/(flow->packets+1);
         flow->payload_avg_size = (flow->payload_avg_size*flow->packets + ipsize )/(flow->packets+1);
     }
     flow->packets++, flow->bytes += rawsize;
@@ -1185,7 +1187,7 @@ struct HogzillaHBase *connectHBase()
 void Hogzilla_mutations(struct ndpi_flow *flow, GPtrArray * mutations)
 {
 
-char text[29][50];
+char text[40][50];
 
 Mutation *mutation;
 //Mutation * mutation;
@@ -1421,6 +1423,7 @@ g_byte_array_append (mutation->value ,(guint8**) text[18],  strlen(text[18]));
 g_ptr_array_add (mutations, mutation);
 
 
+
 // host_server_name
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
@@ -1428,6 +1431,7 @@ mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:host_server_name", 21);
 g_byte_array_append (mutation->value ,(guint8**) flow->host_server_name,  strlen(flow->host_server_name));
 g_ptr_array_add (mutations, mutation);
+
 
 // Packets
 int i;
@@ -1526,6 +1530,87 @@ if(flow->event!=NULL)
 
 
 }
+
+// avg_inter_time
+sprintf(text[27], "%d", flow->avg_inter_time);
+mutation = g_object_new (TYPE_MUTATION, NULL);
+mutation->column = g_byte_array_new ();
+mutation->value  = g_byte_array_new ();
+g_byte_array_append (mutation->column,(guint8*) "flow:avg_inter_time", 19);
+g_byte_array_append (mutation->value ,(guint8**) text[27], strlen(text[27]));
+g_ptr_array_add (mutations, mutation);
+
+// DNS stuff
+// u_int8_t num_queries, num_answers, ret_code;
+// u_int8_t bad_packet /* the received packet looks bad */;
+// u_int16_t query_type, query_class, rsp_type;
+
+if(flow->detected_protocol.protocol == NDPI_PROTOCOL_DNS )
+{
+    // dns.num_queries
+    sprintf(text[28], "%d", flow->ndpi_flow->protos.dns.num_queries);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "flow:dns_num_queries", 20);
+    g_byte_array_append (mutation->value ,(guint8**) text[28], strlen(text[28]));
+    g_ptr_array_add (mutations, mutation);
+    
+    // dns.num_answers
+    sprintf(text[29], "%d", flow->ndpi_flow->protos.dns.num_answers);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "flow:dns_num_answers", 20);
+    g_byte_array_append (mutation->value ,(guint8**) text[29], strlen(text[29]));
+    g_ptr_array_add (mutations, mutation);
+    
+    // dns.ret_code
+    sprintf(text[30], "%d", flow->ndpi_flow->protos.dns.ret_code);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "flow:dns_ret_code", 17);
+    g_byte_array_append (mutation->value ,(guint8**) text[30], strlen(text[30]));
+    g_ptr_array_add (mutations, mutation);
+    
+    // dns.bad_packet
+    sprintf(text[31], "%d", flow->ndpi_flow->protos.dns.bad_packet);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "flow:dns_bad_packet", 19);
+    g_byte_array_append (mutation->value ,(guint8**) text[31], strlen(text[31]));
+    g_ptr_array_add (mutations, mutation);
+    
+    // dns.query_type
+    sprintf(text[32], "%d", flow->ndpi_flow->protos.dns.query_type);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "flow:dns_query_type", 19);
+    g_byte_array_append (mutation->value ,(guint8**) text[32], strlen(text[32]));
+    g_ptr_array_add (mutations, mutation);
+    
+    // dns.query_class
+    sprintf(text[33], "%d", flow->ndpi_flow->protos.dns.query_class);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "flow:dns_query_class", 20);
+    g_byte_array_append (mutation->value ,(guint8**) text[33], strlen(text[33]));
+    g_ptr_array_add (mutations, mutation);
+    
+    // dns.rsp_type
+    sprintf(text[34], "%d", flow->ndpi_flow->protos.dns.rsp_type);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "flow:dns_rsp_type", 17);
+    g_byte_array_append (mutation->value ,(guint8**) text[34], strlen(text[34]));
+    g_ptr_array_add (mutations, mutation);
+}
+
 
   //Unified2EventCommon *event;
   //typedef struct _Unified2EventCommon
