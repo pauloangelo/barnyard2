@@ -41,7 +41,7 @@
  *
  */
 
-#define HOGZILLA_MAX_NDPI_FLOWS 50000
+#define HOGZILLA_MAX_NDPI_FLOWS 500000
 #define HOGZILLA_MAX_NDPI_PKT_PER_FLOW 500
 #define HOGZILLA_MAX_EVENT_TABLE 100000
 #define HOGZILLA_MAX_IDLE_TIME 30000
@@ -733,13 +733,13 @@ static struct ndpi_flow *get_ndpi_flow( const u_int8_t version,
 
   if(ret == NULL) {
     if(ndpi_info.ndpi_flow_count == HOGZILLA_MAX_NDPI_FLOWS) {
-      printf("ERROR: maximum flow count (%u) has been exceeded\n", HOGZILLA_MAX_NDPI_FLOWS);
+      LogMessage("ERROR => [Hogzilla] maximum flow count (%u) has been exceeded\n", HOGZILLA_MAX_NDPI_FLOWS);
       exit(-1);
     } else {
       struct ndpi_flow *newflow = (struct ndpi_flow*)malloc(sizeof(struct ndpi_flow));
 
       if(newflow == NULL) {
-    printf("[NDPI] %s(1): not enough memory\n", __FUNCTION__);
+    LogMessage("ERROR => [Hogzilla] %s(1): not enough memory\n", __FUNCTION__);
     return(NULL);
       }
 
@@ -761,20 +761,20 @@ static struct ndpi_flow *get_ndpi_flow( const u_int8_t version,
       }
 
       if((newflow->ndpi_flow = malloc(size_flow_struct)) == NULL) {
-    printf("[NDPI] %s(2): not enough memory\n", __FUNCTION__);
+    LogMessage("ERROR => [Hogzilla] %s(2): not enough memory\n", __FUNCTION__);
     free(newflow);
     return(NULL);
       } else
     memset(newflow->ndpi_flow, 0, size_flow_struct);
       if((newflow->src_id = malloc(size_id_struct)) == NULL) {
-    printf("[NDPI] %s(3): not enough memory\n", __FUNCTION__);
+    LogMessage("ERROR => [Hogzilla] %s(3): not enough memory\n", __FUNCTION__);
     free(newflow);
     return(NULL);
       } else
     memset(newflow->src_id, 0, size_id_struct);
 
       if((newflow->dst_id = malloc(size_id_struct)) == NULL) {
-    printf("[NDPI] %s(4): not enough memory\n", __FUNCTION__);
+    LogMessage("ERROR => [Hogzilla] %s(4): not enough memory\n", __FUNCTION__);
     free(newflow);
     return(NULL);
       } else
@@ -951,7 +951,7 @@ static struct ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *hea
       static u_int8_t cap_warning_used = 0;
 
       if(cap_warning_used == 0) {
-	    printf("\n\nWARNING: packet capture size is smaller than packet size, DETECTION MIGHT NOT WORK CORRECTLY\n\n");
+	    LogMessage("\n\nWARNING: packet capture size is smaller than packet size, DETECTION MIGHT NOT WORK CORRECTLY\n\n");
 	    cap_warning_used = 1;
       }
     }
@@ -965,7 +965,7 @@ static struct ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *hea
       static u_int8_t ipv4_frags_warning_used = 0;
 
       if(ipv4_frags_warning_used == 0) {
-         printf("\n\nWARNING: IPv4 fragments are not handled by this demo (nDPI supports them)\n");
+         LogMessage("\n\nWARNING: IPv4 fragments are not handled by this demo (nDPI supports them)\n");
 	     ipv4_frags_warning_used = 1;
       }
 
@@ -989,7 +989,7 @@ static struct ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *hea
 
   v4_warning:
     if(ipv4_warning_used == 0) {
-      printf("\n\nWARNING: only IPv4/IPv6 packets are supported in this demo (nDPI supports both IPv4 and IPv6), all other packets will be discarded\n\n");
+      LogMessage("\n\nWARNING: only IPv4/IPv6 packets are supported in this demo (nDPI supports both IPv4 and IPv6), all other packets will be discarded\n\n");
       ipv4_warning_used = 1;
     }
 
