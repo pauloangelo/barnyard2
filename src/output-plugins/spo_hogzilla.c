@@ -45,10 +45,15 @@
 #define HOGZILLA_MAX_NDPI_PKT_PER_FLOW 500
 #define HOGZILLA_MAX_EVENT_TABLE 100000
 #define HOGZILLA_MAX_IDLE_TIME 30000
+//#define HOGZILLA_MAX_IDLE_TIME 300000
 // TODO HZ: Aumentar isso descomentando
-#define IDLE_SCAN_PERIOD       5000 // 5 secs
-//#define IDLE_SCAN_PERIOD       10
+//#define IDLE_SCAN_PERIOD       5000 // 5 secs
+#define IDLE_SCAN_PERIOD       10
+
 #define GTP_U_V1_PORT        2152
+
+#define NUM_ROOTS                 512
+#define IDLE_SCAN_BUDGET         1024
  
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -103,8 +108,6 @@
 #include "output-plugins/hogzilla/hbase_types.h"
 #include "output-plugins/hogzilla/hbase.h"
 
-#define NUM_ROOTS                 512
-#define IDLE_SCAN_BUDGET         1024
 
 
 typedef struct _HogzillaHBase
