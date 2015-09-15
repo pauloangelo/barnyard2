@@ -1054,6 +1054,7 @@ static struct ndpi_flow *packet_processing( const u_int64_t time,
     return NULL;
   }
 
+
   // TODO HZ
   // Interou 500 pacotes, salva no HBASE
   if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW)
@@ -1113,7 +1114,6 @@ static struct ndpi_flow *packet_processing( const u_int64_t time,
     }
 #endif
 
-    free_ndpi_flow(flow);
 
    //  if(verbose > 1) {
    //    if(enable_protocol_guess) {
@@ -1545,8 +1545,10 @@ g_ptr_array_add (mutations, mutation);
 // u_int8_t bad_packet /* the received packet looks bad */;
 // u_int16_t query_type, query_class, rsp_type;
 
-if(flow->detected_protocol.protocol == NDPI_PROTOCOL_DNS )
+if(flow->protocol == IPPROTO_UDP && flow->detected_protocol.protocol == NDPI_PROTOCOL_DNS )
 {
+  // for debuging
+//raise(SIGINT);
     // dns.num_queries
     sprintf(text[28], "%d", flow->ndpi_flow->protos.dns.num_queries);
     mutation = g_object_new (TYPE_MUTATION, NULL);
@@ -1557,7 +1559,7 @@ if(flow->detected_protocol.protocol == NDPI_PROTOCOL_DNS )
     g_ptr_array_add (mutations, mutation);
     
     // dns.num_answers
-    sprintf(text[29], "%d", flow->ndpi_flow->protos.dns.num_answers);
+    sprintf(text[29], "%d", &flow->ndpi_flow->protos.dns.num_answers);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1566,7 +1568,7 @@ if(flow->detected_protocol.protocol == NDPI_PROTOCOL_DNS )
     g_ptr_array_add (mutations, mutation);
     
     // dns.ret_code
-    sprintf(text[30], "%d", flow->ndpi_flow->protos.dns.ret_code);
+    sprintf(text[30], "%d", &flow->ndpi_flow->protos.dns.ret_code);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1575,7 +1577,7 @@ if(flow->detected_protocol.protocol == NDPI_PROTOCOL_DNS )
     g_ptr_array_add (mutations, mutation);
     
     // dns.bad_packet
-    sprintf(text[31], "%d", flow->ndpi_flow->protos.dns.bad_packet);
+    sprintf(text[31], "%d", &flow->ndpi_flow->protos.dns.bad_packet);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1584,7 +1586,7 @@ if(flow->detected_protocol.protocol == NDPI_PROTOCOL_DNS )
     g_ptr_array_add (mutations, mutation);
     
     // dns.query_type
-    sprintf(text[32], "%d", flow->ndpi_flow->protos.dns.query_type);
+    sprintf(text[32], "%d", &flow->ndpi_flow->protos.dns.query_type);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1593,7 +1595,7 @@ if(flow->detected_protocol.protocol == NDPI_PROTOCOL_DNS )
     g_ptr_array_add (mutations, mutation);
     
     // dns.query_class
-    sprintf(text[33], "%d", flow->ndpi_flow->protos.dns.query_class);
+    sprintf(text[33], "%d", &flow->ndpi_flow->protos.dns.query_class);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1602,7 +1604,7 @@ if(flow->detected_protocol.protocol == NDPI_PROTOCOL_DNS )
     g_ptr_array_add (mutations, mutation);
     
     // dns.rsp_type
-    sprintf(text[34], "%d", flow->ndpi_flow->protos.dns.rsp_type);
+    sprintf(text[34], "%d", &flow->ndpi_flow->protos.dns.rsp_type);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
