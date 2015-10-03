@@ -46,6 +46,7 @@
 #define HOGZILLA_MAX_EVENT_TABLE 100000
 #define HOGZILLA_MAX_IDLE_TIME 30000
 #define IDLE_SCAN_PERIOD       10
+
 #define GTP_U_V1_PORT        2152
 
 #define NUM_ROOTS                 512
@@ -1049,6 +1050,7 @@ static struct ndpi_flow *packet_processing( const u_int64_t time,
     return NULL;
   }
 
+
   // TODO HZ
   // Interou 500 pacotes, salva no HBASE
   if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW)
@@ -1424,6 +1426,7 @@ mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:host_server_name", 21);
 g_byte_array_append (mutation->value ,(guint8**) flow->host_server_name,  strlen(flow->host_server_name));
 g_ptr_array_add (mutations, mutation);
+
 
 // Packets
 int i;
