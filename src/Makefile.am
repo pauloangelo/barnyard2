@@ -31,6 +31,7 @@ util.c util.h
 barnyard2_LDADD = output-plugins/libspo.a \
 input-plugins/libspi.a \
 sfutil/libsfutil.a \
+/usr/local/lib/libndpi.a \
 output-plugins/hogzilla/hbase.o \
 output-plugins/hogzilla/hbase_types.o
 

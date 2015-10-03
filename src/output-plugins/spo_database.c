@@ -2448,11 +2448,12 @@ void Database(Packet *p, void *event, uint32_t event_type, void *arg)
     
     if( event == NULL || p == NULL)
     {
-	LogMessage("WARNING database [%s()]: Called with Event[0x%x] Event Type [%u] (P)acket [0x%x], information has not been outputed. \n",
-		   __FUNCTION__,
-		   event,
-		   event_type,
-		   p);
+    // We can have Packets and/or Events in Unified2. What is the problem if we have a packet without event?!
+	//LogMessage("WARNING database [%s()]: Called with Event[0x%x] Event Type [%u] (P)acket [0x%x], information has not been outputed. \n",
+	//	   __FUNCTION__,
+	//	   event,
+	//	   event_type,
+	//	   p);
 	return;
     }
     
