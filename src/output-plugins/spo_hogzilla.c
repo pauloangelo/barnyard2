@@ -523,7 +523,15 @@ static void node_proto_guess_walker(const void *node, ndpi_VISIT which, int dept
   }
 }
 /* ***************************************************** */
-void cleanGPtrArrayCallBack(gpointer data, gpointer b)
+static void free_ndpi_flow(struct ndpi_flow *flow) {
+  if(flow->ndpi_flow) { ndpi_free_flow(flow->ndpi_flow); flow->ndpi_flow = NULL; }
+  if(flow->src_id)    { ndpi_free(flow->src_id); flow->src_id = NULL;       }
+  if(flow->dst_id)    { ndpi_free(flow->dst_id); flow->dst_id = NULL;       }
+  if(flow->event)     { free(flow->event); flow->event = NULL;       }
+
+}
+/* ***************************************************** */
+void cleanMutation(gpointer data, gpointer b)
 {
    // raise(SIGINT);
    Mutation *mutation = (Mutation *) data;
@@ -532,8 +540,78 @@ void cleanGPtrArrayCallBack(gpointer data, gpointer b)
    g_object_unref (mutation);
    g_object_unref (data);
    data = NULL;
-   //g_free(mutation);
 }
+
+/* ***************************************************** */
+void cleanBatchMutation(gpointer data, gpointer b)
+{
+   // raise(SIGINT);
+   BatchMutation *bm = (BatchMutation *) data;
+   g_byte_array_free(bm->row,TRUE);
+   g_ptr_array_foreach(bm->mutations,cleanMutation,(gpointer) NULL);
+   g_ptr_array_free(bm->mutations,TRUE);
+   g_object_unref (bm);
+   g_object_unref (data);
+   data = NULL;
+}
+
+
+/* ***************************************************** */
+void HogzillaSaveFlows()
+{
+     char str[100];
+     struct ndpi_flow *flow;
+
+     hbase = connectHBase();
+
+     GHashTable * attributes = g_hash_table_new(g_str_hash, g_str_equal);
+     Text * table = g_byte_array_new ();
+     g_byte_array_append (table, (guint8*) "hogzilla_flows", 14);
+
+     GPtrArray * batchRows;
+     batchRows = g_ptr_array_new ();
+
+     ///XXXX
+     int i;
+     for(i=0; i< ndpi_info.num_idle_flows ;i++)
+     {
+        flow = ndpi_info.idle_flows[i];
+        BatchMutation *rowMutation;
+        rowMutation = g_object_new (TYPE_BATCH_MUTATION, NULL);
+
+        rowMutation->row = g_byte_array_new ();
+        sprintf(str, "%lld.%lld", flow->first_seen,flow->lower_ip) ;
+        g_byte_array_append (rowMutation->row,(guint8*) str,  strlen(str));
+
+        rowMutation->mutations  = g_ptr_array_new ();
+        Hogzilla_mutations(flow,rowMutation->mutations);
+
+        g_ptr_array_add (batchRows, rowMutation);
+
+        free_ndpi_flow(flow);
+        ndpi_info.ndpi_flow_count--;
+     }
+
+     while(!hbase_client_mutate_rows (hbase->client, table, batchRows ,attributes, &hbase->ioerror, &hbase->iargument, &hbase->error))
+     {
+        if(hbase->error!=NULL)
+           LogMessage ("%s\n", hbase->error->message);
+        if(hbase->ioerror!=NULL)
+           LogMessage ("%s\n", hbase->ioerror->message);
+        if(hbase->iargument!=NULL)
+           LogMessage ("%s\n", hbase->iargument->message);
+
+       LogMessage("DEBUG => [Hogzilla] Error saving the flow below. Reconnecting and trying again in 5 seconds...\n");
+       closeHBase();
+       sleep(5);
+       hbase = connectHBase();
+     }
+
+     g_ptr_array_foreach(batchRows,cleanBatchMutation,(gpointer) NULL);
+     g_ptr_array_free(batchRows,TRUE);
+     g_byte_array_free(table,TRUE);
+}
+
 
 /* ***************************************************** */
 void HogzillaSaveFlow(struct ndpi_flow *flow)
@@ -571,7 +649,8 @@ void HogzillaSaveFlow(struct ndpi_flow *flow)
         if(hbase->iargument!=NULL)
            LogMessage ("%s\n", hbase->iargument->message);
 
-       LogMessage("DEBUG => [Hogzilla] Error saving the flow below. Reconnecting and trying again in 5 seconds...\n\tID: %s, %s:%u <-> %s:%u [pkts:%u] \n", str,flow->lower_name,ntohs(flow->lower_port),flow->upper_name,ntohs(flow->upper_port),flow->packets);
+       LogMessage("DEBUG => [Hogzilla] Error saving the flow below. Reconnecting and trying again in 5 seconds...\n\tID: %s, %s:%u <-> %s:%u [pkts:%u] \n", 
+                            str,flow->lower_name,ntohs(flow->lower_port),flow->upper_name,ntohs(flow->upper_port),flow->packets);
         closeHBase();
         sleep(5);
         hbase = connectHBase();
@@ -580,18 +659,10 @@ void HogzillaSaveFlow(struct ndpi_flow *flow)
      g_byte_array_free(table,TRUE);
      g_byte_array_free(key,TRUE);
      // Do we need it?!
-     g_ptr_array_foreach(mutations,cleanGPtrArrayCallBack,(gpointer) NULL);
+     g_ptr_array_foreach(mutations,cleanMutation,(gpointer) NULL);
      g_ptr_array_free(mutations,TRUE);
 }
 
-/* ***************************************************** */
-static void free_ndpi_flow(struct ndpi_flow *flow) {
-  if(flow->ndpi_flow) { ndpi_free_flow(flow->ndpi_flow); flow->ndpi_flow = NULL; }
-  if(flow->src_id)    { ndpi_free(flow->src_id); flow->src_id = NULL;       }
-  if(flow->dst_id)    { ndpi_free(flow->dst_id); flow->dst_id = NULL;       }
-  if(flow->event)     { free(flow->event); flow->event = NULL;       }
-
-}
 /* ***************************************************** */
 
 static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth, void *user_data) {
@@ -611,9 +682,9 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
       if((flow->detected_protocol.protocol == NDPI_PROTOCOL_UNKNOWN) && !undetected_flows_deleted)
         undetected_flows_deleted = 1;
       
-      HogzillaSaveFlow(flow);
-      free_ndpi_flow(flow);
-      ndpi_info.ndpi_flow_count--;
+      //HogzillaSaveFlow(flow);
+      //free_ndpi_flow(flow);
+      //ndpi_info.ndpi_flow_count--;
 
       /* adding to a queue (we can't delete it from the tree inline ) */
       ndpi_info.idle_flows[ndpi_info.num_idle_flows++] = flow;
@@ -1142,6 +1213,8 @@ static struct ndpi_flow *packet_processing( const u_int64_t time,
   if(ndpi_info.last_idle_scan_time + IDLE_SCAN_PERIOD < ndpi_info.last_time) {
     /* scan for idle flows */
     ndpi_twalk(ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_idle_scan_walker,NULL);
+
+    HogzillaSaveFlows();
 
     /* remove idle flows (unfortunately we cannot do this inline) */
     while (ndpi_info.num_idle_flows > 0)
