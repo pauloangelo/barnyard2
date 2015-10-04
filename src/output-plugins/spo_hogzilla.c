@@ -43,9 +43,9 @@
 
 #define HOGZILLA_MAX_NDPI_FLOWS 1000000
 #define HOGZILLA_MAX_NDPI_PKT_PER_FLOW 500
-#define HOGZILLA_MAX_EVENT_TABLE 100000
-#define HOGZILLA_MAX_IDLE_TIME 30000
-#define IDLE_SCAN_PERIOD       10
+//#define HOGZILLA_MAX_EVENT_TABLE 100000
+#define HOGZILLA_MAX_IDLE_TIME 3000000
+#define IDLE_SCAN_PERIOD        500000
 
 #define GTP_U_V1_PORT        2152
 
@@ -141,7 +141,7 @@ typedef struct reader_hogzilla {
   u_int32_t idle_scan_idx;
   u_int32_t num_idle_flows;
   u_int32_t ndpi_flow_count;
-  void *eventById[HOGZILLA_MAX_EVENT_TABLE];
+  //void *eventById[HOGZILLA_MAX_EVENT_TABLE];
   struct ndpi_flow *idle_flows[IDLE_SCAN_BUDGET];
 } reader_hogzilla;
 
@@ -523,43 +523,44 @@ static void node_proto_guess_walker(const void *node, ndpi_VISIT which, int dept
   }
 }
 /* ***************************************************** */
+void cleanGPtrArrayCallBack(gpointer data, gpointer b)
+{
+   // raise(SIGINT);
+   Mutation *mutation = (Mutation *) data;
+   g_byte_array_free(mutation->column,TRUE);
+   g_byte_array_free(mutation->value,TRUE);
+   g_object_unref (mutation);
+   g_object_unref (data);
+   data = NULL;
+   //g_free(mutation);
+}
 
+/* ***************************************************** */
 void HogzillaSaveFlow(struct ndpi_flow *flow)
 {
-  char str[100];
+     char str[100];
 
-  // Salvar no HBASE
-  //   . Ver se tá conectado, senao conecta
+     // Save into HBase
      hbase = connectHBase();
-     //GPtrArray *lista ;
-     //lista = g_ptr_array_new ();
+
      GHashTable * attributes = g_hash_table_new(g_str_hash, g_str_equal);
      GPtrArray * mutations;
      mutations = g_ptr_array_new ();
      
      Hogzilla_mutations(flow,mutations);
 
-// Mutation *mutation;
-// mutation = g_object_new (TYPE_MUTATION, NULL);
-// mutation->column = g_byte_array_new ();
-// mutation->value  = g_byte_array_new ();
-// g_byte_array_append (mutation->column,(guint8*) "flow:lower_ip", 13);
-//g_byte_array_append (mutation->value ,(guint8*) &flow->lower_ip,  sizeof(u_int32_t));
-//g_byte_array_append (mutation->value ,(guint8**) flow->lower_name,  strlen(flow->lower_name));
-// g_ptr_array_add (mutations, mutation);
-     
-     Text * tabela = g_byte_array_new ();
-     g_byte_array_append (tabela, (guint8*) "hogzilla_flows", 14);
+     Text * table = g_byte_array_new ();
+     g_byte_array_append (table, (guint8*) "hogzilla_flows", 14);
 
      //TODO HZ: find a better flow ID
-      sprintf(str, "%lld.%lld", flow->first_seen,flow->lower_ip) ;
-     Text * chave ;
+     sprintf(str, "%lld.%lld", flow->first_seen,flow->lower_ip) ;
+     Text * key ;
+     key = g_byte_array_new ();
+     g_byte_array_append (key,(guint8*) str,  strlen(str));
+
      // Use for debug 
      //LogMessage("DEBUG => [Hogzilla] ID: %s , %s:%u <-> %s:%u \n", str,flow->lower_name,ntohs(flow->lower_port),flow->upper_name,ntohs(flow->upper_port));
-     chave = g_byte_array_new ();
-     g_byte_array_append (chave,(guint8*) str,  strlen(str));
-
-     while(!hbase_client_mutate_row (hbase->client, tabela, chave, mutations,attributes, &hbase->ioerror, &hbase->iargument, &hbase->error))
+     while(!hbase_client_mutate_row (hbase->client, table, key, mutations,attributes, &hbase->ioerror, &hbase->iargument, &hbase->error))
      {
         if(hbase->error!=NULL)
            LogMessage ("%s\n", hbase->error->message);
@@ -573,6 +574,12 @@ void HogzillaSaveFlow(struct ndpi_flow *flow)
         sleep(5);
         hbase = connectHBase();
      }
+
+     g_byte_array_free(table,TRUE);
+     g_byte_array_free(key,TRUE);
+     // Do we need it?!
+     g_ptr_array_foreach(mutations,cleanGPtrArrayCallBack,(gpointer) NULL);
+     g_ptr_array_free(mutations,TRUE);
 }
 
 /* ***************************************************** */
@@ -588,7 +595,7 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
   struct ndpi_flow *flow = *(struct ndpi_flow **) node;
   
   
-  //  Conexões idle, salva no HBASE e apaga
+  //  idle connections, Save in HBase and remove
 
   if(ndpi_info.num_idle_flows == IDLE_SCAN_BUDGET) /* TODO optimise with a budget-based walk */
     return;
@@ -1134,8 +1141,8 @@ static struct ndpi_flow *packet_processing( const u_int64_t time,
 
     /* remove idle flows (unfortunately we cannot do this inline) */
     while (ndpi_info.num_idle_flows > 0)
-  ndpi_tdelete(ndpi_info.idle_flows[--ndpi_info.num_idle_flows],
-  	     &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_cmp);
+          ndpi_tdelete(ndpi_info.idle_flows[--ndpi_info.num_idle_flows],
+  	                  &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_cmp);
 
     if(++ndpi_info.idle_scan_idx == NUM_ROOTS) ndpi_info.idle_scan_idx = 0;
     ndpi_info.last_idle_scan_time = ndpi_info.last_time;
@@ -1185,14 +1192,6 @@ void Hogzilla_mutations(struct ndpi_flow *flow, GPtrArray * mutations)
 char text[40][50];
 
 Mutation *mutation;
-//Mutation * mutation;
-//mutation = g_object_new (TYPE_MUTATION, NULL);
-//mutation->column = g_byte_array_new ();
-//g_byte_array_append (mutation->column,(guint8*) "flow:lower_ip", 13);
-//mutation->value  = g_byte_array_new ();
-//g_byte_array_append (mutation->value,(guint8*) "Teste",  5);
-//g_ptr_array_add (mutations, mutation);
-
 
 // lower_ip
 mutation = g_object_new (TYPE_MUTATION, NULL);

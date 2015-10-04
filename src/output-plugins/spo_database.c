@@ -101,6 +101,7 @@ static const char* FATAL_NO_SUPPORT_2 =
 
 
 #include "output-plugins/spo_database.h"
+#include <signal.h>
 
 void DatabaseCleanSelect(DatabaseData *data)
 {

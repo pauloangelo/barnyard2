@@ -175,3 +175,18 @@ barnyard2-users@googlegroups.com
 AND
 barnyard2-devel@googlegroups.com
 
+You can contact the barnyard2-hz (Hogzilla) team by our mailing list.
+
+hogzilla@googlegroups.com
+
+------------------------------------------------------------------------------
+5. DEBUG barnyard2-hz
+------------------------------------------------------------------------------
+
+gdb /usr/local/by-hz/bin/barnyard2
+> set follow-fork-mode child
+> r -c /usr/local/by-hz/etc/barnyard2.conf -a /usr/local/snort/var/log/archive -f merged.log -d /usr/local/snort/var/log
+> bt
+
+You may need to add somewhere a "raise(SIGINT);" to create a breakpoint.
+

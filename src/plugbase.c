@@ -31,6 +31,7 @@
 #include "config.h"
 #endif
 
+#include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -673,6 +674,7 @@ int pbCheckSignatureSuppression(void *event)
 
 void CallOutputPlugins(OutputType out_type, Packet *packet, void *event, uint32_t event_type)
 {
+
     OutputFuncNode *idx = NULL;
 
     /* Plug for sid suppression */
