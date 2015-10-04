@@ -516,7 +516,7 @@ static void node_proto_guess_walker(const void *node, ndpi_VISIT which, int dept
 
   if((which == ndpi_preorder) || (which == ndpi_leaf)) { /* Avoid walking the same node multiple times */
       if(flow->detected_protocol.protocol == NDPI_PROTOCOL_UNKNOWN) {
-    node_guess_undetected_protocol(flow);
+          node_guess_undetected_protocol(flow);
     // printFlow(thread_id, flow);
       }
 
@@ -539,7 +539,6 @@ void cleanGPtrArrayCallBack(gpointer data, gpointer b)
 void HogzillaSaveFlow(struct ndpi_flow *flow)
 {
      //return;
-     //LogMessage("DEBUG => [Hogzilla] (%d) Line %d in file %s\n",time(NULL) , __LINE__, __FILE__);
 
      char str[100];
 
@@ -590,13 +589,13 @@ static void free_ndpi_flow(struct ndpi_flow *flow) {
   if(flow->ndpi_flow) { ndpi_free_flow(flow->ndpi_flow); flow->ndpi_flow = NULL; }
   if(flow->src_id)    { ndpi_free(flow->src_id); flow->src_id = NULL;       }
   if(flow->dst_id)    { ndpi_free(flow->dst_id); flow->dst_id = NULL;       }
+  if(flow->event)     { free(flow->event); flow->event = NULL;       }
 
 }
 /* ***************************************************** */
 
 static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth, void *user_data) {
   struct ndpi_flow *flow = *(struct ndpi_flow **) node;
-  
   
   //  idle connections, Save in HBase and remove
 
@@ -754,6 +753,7 @@ static struct ndpi_flow *get_ndpi_flow( const u_int8_t version,
       //PA NEWFLOW
       newflow->min_packet_size=999999;
       newflow->payload_min_size=999999;
+      newflow->event=NULL;
       //AP
 
       if(version == 4) {
@@ -1465,7 +1465,7 @@ for(i=0;i<flow->packets && i<sizeof(flow->inter_time);i++)
 
 if(flow->event!=NULL)
 {
-    sprintf(text[19], "%d", flow->event->sensor_id);
+    sprintf(text[19], "%d", ntohl(flow->event->sensor_id));
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1497,7 +1497,6 @@ if(flow->event!=NULL)
     g_byte_array_append (mutation->value ,(guint8**) text[22], strlen(text[22]));
     g_ptr_array_add (mutations, mutation);
 
-    //sid =  ntohl(((Unified2EventCommon *)event)->signature_id);
     sprintf(text[23], "%u", ntohl(flow->event->signature_id));
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
@@ -1647,7 +1646,6 @@ if(flow->protocol == IPPROTO_UDP && flow->detected_protocol.protocol == NDPI_PRO
  */
 static void Hogzilla(Packet *p, void *event, uint32_t event_type, void *arg)
 {
-   uint32_t event_id;
    struct ndpi_flow *flow; 
 
 // Comment it in english:
@@ -1657,10 +1655,14 @@ static void Hogzilla(Packet *p, void *event, uint32_t event_type, void *arg)
 //       ii ) Atingiu 500 pacotes no fluxo
 //       iii) A conexão ficou IDLE por mais de HOGZILLA_MAX_IDLE_TIME
 
-//LogMessage("DEBUG => [Hogzilla] Line %d in file %s\n", __LINE__, __FILE__);
+    //LogMessage("DEBUG => [Hogzilla] Line %d in file %s\n", __LINE__, __FILE__);
+
        flow=packet_processing_by_pcap( p->pkth, p->pkt);
-       if(flow != NULL && event!=NULL)
-          flow->event=event;
+       if(flow != NULL && event!=NULL && flow->event==NULL)
+       {
+          flow->event= (struct Unified2EventCommon*)malloc(sizeof(Unified2EventCommon));
+          memcpy ( flow->event, event, sizeof(Unified2EventCommon) );
+       }
 
 // Deixe aqui por enquanto, pode ser necessário no futuro.
 //    if(p)
