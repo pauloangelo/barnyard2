@@ -45,7 +45,7 @@
 #define HOGZILLA_MAX_NDPI_PKT_PER_FLOW 500
 //#define HOGZILLA_MAX_EVENT_TABLE 100000
 #define HOGZILLA_MAX_IDLE_TIME 3000000
-#define IDLE_SCAN_PERIOD        1000
+#define IDLE_SCAN_PERIOD          1000
 
 #define GTP_U_V1_PORT        2152
 
@@ -539,6 +539,7 @@ void cleanGPtrArrayCallBack(gpointer data, gpointer b)
 void HogzillaSaveFlow(struct ndpi_flow *flow)
 {
      //return;
+     //LogMessage("DEBUG => [Hogzilla] (%d) Line %d in file %s\n",time(NULL) , __LINE__, __FILE__);
 
      char str[100];
 
@@ -1149,7 +1150,7 @@ static struct ndpi_flow *packet_processing( const u_int64_t time,
      free(ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
     }
 
-    LogMessage("DEBUG => [Hogzilla] %d \n", ndpi_info.ndpi_flow_count);
+    // LogMessage("DEBUG => [Hogzilla] Flows in memory: %d \n", ndpi_info.ndpi_flow_count);
 
     if(++ndpi_info.idle_scan_idx == NUM_ROOTS) ndpi_info.idle_scan_idx = 0;
     ndpi_info.last_idle_scan_time = ndpi_info.last_time;
