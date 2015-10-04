@@ -41,16 +41,16 @@
  *
  */
 
-#define HOGZILLA_MAX_NDPI_FLOWS 1000000
+#define HOGZILLA_MAX_NDPI_FLOWS 500000
 #define HOGZILLA_MAX_NDPI_PKT_PER_FLOW 500
 //#define HOGZILLA_MAX_EVENT_TABLE 100000
 #define HOGZILLA_MAX_IDLE_TIME 3000000
-#define IDLE_SCAN_PERIOD        500000
+#define IDLE_SCAN_PERIOD        1000
 
 #define GTP_U_V1_PORT        2152
 
 #define NUM_ROOTS                 512
-#define IDLE_SCAN_BUDGET         1024
+#define IDLE_SCAN_BUDGET         4096
  
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -538,6 +538,8 @@ void cleanGPtrArrayCallBack(gpointer data, gpointer b)
 /* ***************************************************** */
 void HogzillaSaveFlow(struct ndpi_flow *flow)
 {
+     //return;
+
      char str[100];
 
      // Save into HBase
@@ -611,6 +613,7 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
       
       HogzillaSaveFlow(flow);
       free_ndpi_flow(flow);
+      ndpi_info.ndpi_flow_count--;
 
       /* adding to a queue (we can't delete it from the tree inline ) */
       ndpi_info.idle_flows[ndpi_info.num_idle_flows++] = flow;
@@ -1141,8 +1144,12 @@ static struct ndpi_flow *packet_processing( const u_int64_t time,
 
     /* remove idle flows (unfortunately we cannot do this inline) */
     while (ndpi_info.num_idle_flows > 0)
-          ndpi_tdelete(ndpi_info.idle_flows[--ndpi_info.num_idle_flows],
-  	                  &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_cmp);
+    {
+     ndpi_tdelete(ndpi_info.idle_flows[--ndpi_info.num_idle_flows], &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_cmp);
+     free(ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
+    }
+
+    LogMessage("DEBUG => [Hogzilla] %d \n", ndpi_info.ndpi_flow_count);
 
     if(++ndpi_info.idle_scan_idx == NUM_ROOTS) ndpi_info.idle_scan_idx = 0;
     ndpi_info.last_idle_scan_time = ndpi_info.last_time;
