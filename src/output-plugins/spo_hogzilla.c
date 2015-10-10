@@ -1498,7 +1498,6 @@ g_byte_array_append (mutation->value ,(guint8**) text[18],  strlen(text[18]));
 g_ptr_array_add (mutations, mutation);
 
 
-
 // host_server_name
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
@@ -1506,6 +1505,15 @@ mutation->value  = g_byte_array_new ();
 g_byte_array_append (mutation->column,(guint8*) "flow:host_server_name", 21);
 g_byte_array_append (mutation->value ,(guint8**) flow->host_server_name,  strlen(flow->host_server_name));
 g_ptr_array_add (mutations, mutation);
+
+// detected_os
+mutation = g_object_new (TYPE_MUTATION, NULL);
+mutation->column = g_byte_array_new ();
+mutation->value  = g_byte_array_new ();
+g_byte_array_append (mutation->column,(guint8*) "flow:detected_os", 16);
+g_byte_array_append (mutation->value ,(guint8**) flow->ndpi_flow->detected_os,  strlen(flow->ndpi_flow->detected_os));
+g_ptr_array_add (mutations, mutation);
+
 
 
 // Packets
@@ -1687,6 +1695,41 @@ if(flow->protocol == IPPROTO_UDP && flow->detected_protocol.protocol == NDPI_PRO
     g_ptr_array_add (mutations, mutation);
 }
 
+if(flow->protocol == IPPROTO_TCP && flow->detected_protocol.protocol == NDPI_PROTOCOL_HTTP )
+{
+
+    // http.method
+    sprintf(text[35], "%d", flow->ndpi_flow->http.method);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint8*) "flow:http_method", 16);
+    g_byte_array_append (mutation->value ,(guint8**) text[35], strlen(text[35]));
+    g_ptr_array_add (mutations, mutation);
+    
+    // http.url
+    if(flow->ndpi_flow->http.url != NULL)
+    {
+       mutation = g_object_new (TYPE_MUTATION, NULL);
+       mutation->column = g_byte_array_new ();
+       mutation->value  = g_byte_array_new ();
+       g_byte_array_append (mutation->column,(guint8*) "flow:http_url", 13);
+       g_byte_array_append (mutation->value ,(guint8**) flow->ndpi_flow->http.url,  strlen(flow->ndpi_flow->http.url));
+       g_ptr_array_add (mutations, mutation);
+    }
+
+    // http.content_type
+    if(flow->ndpi_flow->http.content_type != NULL)
+    {
+       mutation = g_object_new (TYPE_MUTATION, NULL);
+       mutation->column = g_byte_array_new ();
+       mutation->value  = g_byte_array_new ();
+       g_byte_array_append (mutation->column,(guint8*) "flow:http_content_type", 22);
+       g_byte_array_append (mutation->value ,(guint8**) flow->ndpi_flow->http.content_type,  strlen(flow->ndpi_flow->http.content_type));
+       g_ptr_array_add (mutations, mutation);
+    }
+}
+
 
   //Unified2EventCommon *event;
   //typedef struct _Unified2EventCommon
@@ -1734,7 +1777,7 @@ static void Hogzilla(Packet *p, void *event, uint32_t event_type, void *arg)
        if(flow != NULL && event!=NULL && flow->event==NULL)
        {
           flow->event= (struct Unified2EventCommon*)malloc(sizeof(Unified2EventCommon));
-          memcpy ( flow->event, event, sizeof(Unified2EventCommon) );
+          memcpy(flow->event, event, sizeof(Unified2EventCommon));
        }
 
 // Deixe aqui por enquanto, pode ser necessário no futuro.
