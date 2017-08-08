@@ -603,6 +603,8 @@ void HogzillaSaveFlows()
 
         free_ndpi_flow(flow);
         ndpi_info.ndpi_flow_count--;
+
+        rowMutation = NULL;
      }
 
      while(!hbase_client_mutate_rows (hbase->client, table, batchRows ,attributes, &hbase->ioerror, &hbase->iargument, &hbase->error))
