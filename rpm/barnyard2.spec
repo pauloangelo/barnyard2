@@ -43,7 +43,7 @@
 
 Summary: Snort Log Backend 
 Name: barnyard2
-Version: 1.13
+Version: 1.14
 Source0: https://github.com/firnsy/barnyard2/archive/barnyard2-%{version}.tar.gz
 Release: 1%{?dist}
 License: GPL
@@ -57,6 +57,7 @@ BuildRequires: libpcap1-devel
 %else
 BuildRequires: libpcap-devel
 %endif
+BuildRequires: libdnet-devel
 
 
 %description
