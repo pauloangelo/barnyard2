@@ -172,6 +172,10 @@ static u_int32_t detection_tick_resolution = 1000;
 static u_int16_t decode_tunnels = 0;
 static u_int8_t  nDPI_traceLevel = 0;
 
+// YYY
+GHashTable * attributes = g_hash_table_new(g_str_hash, g_str_equal);
+Text * table = g_byte_array_new ();
+
 
 static void debug_printf(u_int32_t protocol, void *id_struct,
 			 ndpi_log_level_t log_level,
@@ -271,6 +275,8 @@ static void HogzillaInit(char *args)
     /* parse the argument list from the rules file */
     data = ParseHogzillaArgs(args);
     hogzilla_ptr = data;
+
+    g_byte_array_append (table, (guint8*) "hogzilla_flows", 14);
 
     //AddFuncToPostConfigList(HogzillaInitLogFileFinalize, data);
     //DEBUG_WRAP(DebugMessage(DEBUG_INIT,"Linking Hogzilla functions to call lists...\n"););
@@ -567,9 +573,10 @@ void HogzillaSaveFlows()
 
      hbase = connectHBase();
 
-     GHashTable * attributes = g_hash_table_new(g_str_hash, g_str_equal);
-     Text * table = g_byte_array_new ();
-     g_byte_array_append (table, (guint8*) "hogzilla_flows", 14);
+     // YYY
+     //GHashTable * attributes = g_hash_table_new(g_str_hash, g_str_equal);
+     //Text * table = g_byte_array_new ();
+     //g_byte_array_append (table, (guint8*) "hogzilla_flows", 14);
 
      GPtrArray * batchRows;
      batchRows = g_ptr_array_new ();
@@ -612,7 +619,7 @@ void HogzillaSaveFlows()
 
      g_ptr_array_foreach(batchRows,cleanBatchMutation,(gpointer) NULL);
      g_ptr_array_free(batchRows,TRUE);
-     g_byte_array_free(table,TRUE);
+     //g_byte_array_free(table,TRUE);
 }
 
 
