@@ -76,8 +76,8 @@ case "$host" in
     # libpcap doesn't even LOOK at the timeout you give it under Linux
     AC_DEFINE([PCAP_TIMEOUT_IGNORED],[1],[Define if pcap timeout is ignored])
     AC_SUBST(extra_incl)
-    extra_incl="-I/usr/include/pcap -I/usr/local/snort/include -I/usr/local/include/libndpi-1.7.0/libndpi -I/usr/local/include/thrift -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/local/snort/include/"
-    CPPFLAGS="${CPPFLAGS} -I/usr/local/include/libndpi-1.7.0/libndpi -I/usr/local/include/thrift -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/local/snort/include/ "
+    extra_incl="-I/usr/include/pcap -I/usr/local/snort/include -I/usr/local/include/libndpi-2.1.0/libndpi -I/usr/local/include/thrift -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/local/snort/include/"
+    CPPFLAGS="${CPPFLAGS} -I/usr/local/include/libndpi-2.1.0/libndpi -I/usr/local/include/thrift -I/usr/include/glib-2.0 -I/usr/lib/x86_64-linux-gnu/glib-2.0/include -I/usr/local/snort/include/ "
     LIBS="${LIBS} -lgobject-2.0 -lglib-2.0 -lthrift_c_glib -lndpi "
     ;;
   *-hpux10*|*-hpux11*)

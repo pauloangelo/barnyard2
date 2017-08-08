@@ -496,7 +496,7 @@ static u_int16_t node_guess_undetected_protocol(struct ndpi_flow *flow) {
 							   ntohs(flow->upper_port));
   // printf("Guess state: %u\n", flow->detected_protocol);
 
-  return(flow->detected_protocol.protocol);
+  return(flow->detected_protocol.master_protocol);
 }
 
 
@@ -515,7 +515,7 @@ static void node_proto_guess_walker(const void *node, ndpi_VISIT which, int dept
 #endif
 
   if((which == ndpi_preorder) || (which == ndpi_leaf)) { /* Avoid walking the same node multiple times */
-      if(flow->detected_protocol.protocol == NDPI_PROTOCOL_UNKNOWN) {
+      if(flow->detected_protocol.master_protocol == NDPI_PROTOCOL_UNKNOWN) {
           node_guess_undetected_protocol(flow);
     // printFlow(thread_id, flow);
       }
@@ -679,7 +679,7 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
       /* update stats */
       node_proto_guess_walker(node, which, depth, user_data);
 
-      if((flow->detected_protocol.protocol == NDPI_PROTOCOL_UNKNOWN) && !undetected_flows_deleted)
+      if((flow->detected_protocol.master_protocol == NDPI_PROTOCOL_UNKNOWN) && !undetected_flows_deleted)
         undetected_flows_deleted = 1;
       
       //HogzillaSaveFlow(flow);
@@ -1152,17 +1152,17 @@ static struct ndpi_flow *packet_processing( const u_int64_t time,
 							  iph ? (uint8_t *)iph : (uint8_t *)iph6,
 							  ipsize, time, src, dst);
 
-  if((flow->detected_protocol.protocol != NDPI_PROTOCOL_UNKNOWN)
+  if((flow->detected_protocol.master_protocol != NDPI_PROTOCOL_UNKNOWN)
      || ((proto == IPPROTO_UDP) && (flow->packets > 8))
      || ((proto == IPPROTO_TCP) && (flow->packets > 10))) {
     flow->detection_completed = 1;
 
-    if((flow->detected_protocol.protocol == NDPI_PROTOCOL_UNKNOWN) && (ndpi_flow->num_stun_udp_pkts > 0))
+    if((flow->detected_protocol.master_protocol == NDPI_PROTOCOL_UNKNOWN) && (ndpi_flow->num_stun_udp_pkts > 0))
       ndpi_set_detected_protocol(ndpi_info.ndpi_struct, ndpi_flow, NDPI_PROTOCOL_STUN, NDPI_PROTOCOL_UNKNOWN);
 
     snprintf(flow->host_server_name, sizeof(flow->host_server_name), "%s", flow->ndpi_flow->host_server_name);
 
-    if((proto == IPPROTO_TCP) && (flow->detected_protocol.protocol != NDPI_PROTOCOL_DNS)) {
+    if((proto == IPPROTO_TCP) && (flow->detected_protocol.master_protocol != NDPI_PROTOCOL_DNS)) {
       snprintf(flow->ssl.client_certificate, sizeof(flow->ssl.client_certificate), "%s", flow->ndpi_flow->protos.ssl.client_certificate);
       snprintf(flow->ssl.server_certificate, sizeof(flow->ssl.server_certificate), "%s", flow->ndpi_flow->protos.ssl.server_certificate);
     }
@@ -1195,8 +1195,8 @@ static struct ndpi_flow *packet_processing( const u_int64_t time,
 
    //  if(verbose > 1) {
    //    if(enable_protocol_guess) {
-   //  if(flow->detected_protocol.protocol == NDPI_PROTOCOL_UNKNOWN) {
-   //    flow->detected_protocol.protocol = node_guess_undetected_protocol(thread_id, flow),
+   //  if(flow->detected_protocol.master_protocol == NDPI_PROTOCOL_UNKNOWN) {
+   //    flow->detected_protocol.master_protocol = node_guess_undetected_protocol(thread_id, flow),
    //      flow->detected_protocol.master_protocol = NDPI_PROTOCOL_UNKNOWN;
    //  }
    //    }
@@ -1482,13 +1482,13 @@ if(flow->detected_protocol.master_protocol) {
  char buf[64];
 
  sprintf(text[18], "%u.%u/%s",
-  flow->detected_protocol.master_protocol, flow->detected_protocol.protocol,
+  flow->detected_protocol.master_protocol, flow->detected_protocol.master_protocol,
   ndpi_protocol2name(ndpi_info.ndpi_struct,flow->detected_protocol, buf, sizeof(buf)));
 } else
 {
  sprintf(text[18], "%u/%s",
- flow->detected_protocol.protocol,
- ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.protocol));
+ flow->detected_protocol.master_protocol,
+ ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.master_protocol));
 }
 mutation = g_object_new (TYPE_MUTATION, NULL);
 mutation->column = g_byte_array_new ();
@@ -1623,11 +1623,13 @@ g_byte_array_append (mutation->value ,(guint8**) text[27], strlen(text[27]));
 g_ptr_array_add (mutations, mutation);
 
 // DNS stuff
-// u_int8_t num_queries, num_answers, ret_code;
-// u_int8_t bad_packet /* the received packet looks bad */;
-// u_int16_t query_type, query_class, rsp_type;
+//    struct {
+//      u_int8_t num_queries, num_answers, reply_code;
+//      u_int16_t query_type, query_class, rsp_type;
+//    } dns;
 
-if(flow->protocol == IPPROTO_UDP && flow->detected_protocol.protocol == NDPI_PROTOCOL_DNS )
+
+if(flow->protocol == IPPROTO_UDP && flow->detected_protocol.master_protocol == NDPI_PROTOCOL_DNS )
 {
   // for debuging
 //raise(SIGINT);
@@ -1649,23 +1651,23 @@ if(flow->protocol == IPPROTO_UDP && flow->detected_protocol.protocol == NDPI_PRO
     g_byte_array_append (mutation->value ,(guint8**) text[29], strlen(text[29]));
     g_ptr_array_add (mutations, mutation);
     
-    // dns.ret_code
-    sprintf(text[30], "%d", flow->ndpi_flow->protos.dns.ret_code);
+    // dns.reply_code
+    sprintf(text[30], "%d", flow->ndpi_flow->protos.dns.reply_code);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint8*) "flow:dns_ret_code", 17);
+    g_byte_array_append (mutation->column,(guint8*) "flow:dns_reply_code", 19);
     g_byte_array_append (mutation->value ,(guint8**) text[30], strlen(text[30]));
     g_ptr_array_add (mutations, mutation);
     
-    // dns.bad_packet
-    sprintf(text[31], "%d", flow->ndpi_flow->protos.dns.bad_packet);
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint8*) "flow:dns_bad_packet", 19);
-    g_byte_array_append (mutation->value ,(guint8**) text[31], strlen(text[31]));
-    g_ptr_array_add (mutations, mutation);
+    //// dns.bad_packet DEPRECATED
+    //sprintf(text[31], "%d", flow->ndpi_flow->protos.dns.bad_packet);
+    //mutation = g_object_new (TYPE_MUTATION, NULL);
+    //mutation->column = g_byte_array_new ();
+    //mutation->value  = g_byte_array_new ();
+    //g_byte_array_append (mutation->column,(guint8*) "flow:dns_bad_packet", 19);
+    //g_byte_array_append (mutation->value ,(guint8**) text[31], strlen(text[31]));
+    //g_ptr_array_add (mutations, mutation);
     
     // dns.query_type
     sprintf(text[32], "%d", flow->ndpi_flow->protos.dns.query_type);
@@ -1695,7 +1697,7 @@ if(flow->protocol == IPPROTO_UDP && flow->detected_protocol.protocol == NDPI_PRO
     g_ptr_array_add (mutations, mutation);
 }
 
-if(flow->protocol == IPPROTO_TCP && flow->detected_protocol.protocol == NDPI_PROTOCOL_HTTP )
+if(flow->protocol == IPPROTO_TCP && flow->detected_protocol.master_protocol == NDPI_PROTOCOL_HTTP )
 {
 
     // http.method
