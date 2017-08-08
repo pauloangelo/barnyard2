@@ -538,9 +538,10 @@ void cleanMutation(gpointer data, gpointer b)
    Mutation *mutation = (Mutation *) data;
    g_byte_array_free(mutation->column,TRUE);
    g_byte_array_free(mutation->value,TRUE);
-   g_object_unref (mutation);
+   // g_object_unref (mutation);
    g_object_unref (data);
    data = NULL;
+   mutation = NULL;
 }
 
 /* ***************************************************** */
@@ -551,8 +552,9 @@ void cleanBatchMutation(gpointer data, gpointer b)
    g_byte_array_free(bm->row,TRUE);
    g_ptr_array_foreach(bm->mutations,cleanMutation,(gpointer) NULL);
    g_ptr_array_free(bm->mutations,TRUE);
-   g_object_unref (bm);
+   //g_object_unref (bm);
    g_object_unref (data);
+   bm = NULL;
    data = NULL;
 }
 
