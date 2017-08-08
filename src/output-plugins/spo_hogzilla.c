@@ -173,8 +173,8 @@ static u_int16_t decode_tunnels = 0;
 static u_int8_t  nDPI_traceLevel = 0;
 
 // YYY
-GHashTable * attributes = g_hash_table_new(g_str_hash, g_str_equal);
-Text * table = g_byte_array_new ();
+GHashTable * attributes;
+Text * table ;
 
 
 static void debug_printf(u_int32_t protocol, void *id_struct,
@@ -276,6 +276,9 @@ static void HogzillaInit(char *args)
     data = ParseHogzillaArgs(args);
     hogzilla_ptr = data;
 
+    // YYY
+    attributes = g_hash_table_new(g_str_hash, g_str_equal);
+    table = g_byte_array_new ();
     g_byte_array_append (table, (guint8*) "hogzilla_flows", 14);
 
     //AddFuncToPostConfigList(HogzillaInitLogFileFinalize, data);
