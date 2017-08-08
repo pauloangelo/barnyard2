@@ -1778,12 +1778,15 @@ static void Hogzilla(Packet *p, void *event, uint32_t event_type, void *arg)
 
     //LogMessage("DEBUG => [Hogzilla] Line %d in file %s\n", __LINE__, __FILE__);
 
+     if(p) 
+     {
        flow=packet_processing_by_pcap( p->pkth, p->pkt);
        if(flow != NULL && event!=NULL && flow->event==NULL)
        {
           flow->event= (struct Unified2EventCommon*)malloc(sizeof(Unified2EventCommon));
           memcpy(flow->event, event, sizeof(Unified2EventCommon));
        }
+     }
 
 // Deixe aqui por enquanto, pode ser necessário no futuro.
 //    if(p)

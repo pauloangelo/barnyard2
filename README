@@ -192,6 +192,7 @@ You may need to add somewhere a "raise(SIGINT);" to create a breakpoint.
 
 If you get dnet.h problem, you must run:
 
+apt-get install libdumbnet-dev
 ln -s /usr/include/dumbnet.h /usr/include/dnet.h
 ldconfig
 
