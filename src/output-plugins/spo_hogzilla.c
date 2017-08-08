@@ -156,7 +156,7 @@ static void SpoHogzillaCleanExitFunc(int, void *);
 static void SpoHogzillaRestartFunc(int, void *);
 static void HogzillaSingle(Packet *, void *, uint32_t, void *);
 static void HogzillaStream(Packet *, void *, uint32_t, void *);
-static struct ndpi_flow *packet_processing( const u_int64_t time, u_int16_t vlan_id, const struct ndpi_iphdr *iph, struct ndpi_ip6_hdr *iph6, u_int16_t ip_offset, u_int16_t ipsize, u_int16_t rawsize);
+static struct ndpi_flow *packet_processing( const u_int64_t time, u_int16_t vlan_id, const struct ndpi_iphdr *iph, struct ndpi_ipv6hdr *iph6, u_int16_t ip_offset, u_int16_t ipsize, u_int16_t rawsize);
 static struct ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *header, const u_char *packet);
 struct HogzillaHBase *connectHBase();
 
@@ -231,7 +231,8 @@ void HogzillaSetup(void)
     DEBUG_WRAP(DebugMessage(DEBUG_INIT,"Output plugin: Hogzilla is setup...\n"););
 
   memset(&ndpi_info, 0, sizeof(ndpi_info));
-  ndpi_info.ndpi_struct = ndpi_init_detection_module(detection_tick_resolution, malloc, free, debug_printf);
+  //ndpi_info.ndpi_struct = ndpi_init_detection_module(detection_tick_resolution, malloc, free, debug_printf);
+  ndpi_info.ndpi_struct = ndpi_init_detection_module();
 
   if(ndpi_info.ndpi_struct == NULL) {
     printf("ERROR: global structure initialization failed\n");
@@ -718,7 +719,7 @@ static struct ndpi_flow *get_ndpi_flow( const u_int8_t version,
                        struct ndpi_id_struct **src,
                        struct ndpi_id_struct **dst,
                        u_int8_t *proto,
-                       const struct ndpi_ip6_hdr *iph6) {
+                       const struct ndpi_ipv6hdr *iph6) {
   u_int32_t idx, l4_offset;
   struct ndpi_tcphdr *tcph = NULL;
   struct ndpi_udphdr *udph = NULL;
@@ -739,13 +740,13 @@ static struct ndpi_flow *get_ndpi_flow( const u_int8_t version,
       return NULL;
 
     if((iph->ihl * 4) > ipsize || ipsize < ntohs(iph->tot_len)
-       || (iph->frag_off & htons(0x1FFF)) != 0)
+       /*|| (iph->frag_off & htons(0x1FFF)) != 0*/)
       return NULL;
 
     l4_offset = iph->ihl * 4;
     l3 = (u_int8_t*)iph;
   } else {
-    l4_offset = sizeof(struct ndpi_ip6_hdr);
+    l4_offset = sizeof(struct ndpi_ipv6hdr);
     l3 = (u_int8_t*)iph6;
   }
 
@@ -879,7 +880,7 @@ static struct ndpi_flow *get_ndpi_flow( const u_int8_t version,
 
 /* ***************************************************** */
 static struct ndpi_flow *get_ndpi_flow6(u_int16_t vlan_id,
-                    const struct ndpi_ip6_hdr *iph6,
+                    const struct ndpi_ipv6hdr *iph6,
                     u_int16_t ip_offset,
                     struct ndpi_id_struct **src,
                     struct ndpi_id_struct **dst,
@@ -888,18 +889,20 @@ static struct ndpi_flow *get_ndpi_flow6(u_int16_t vlan_id,
 
   memset(&iph, 0, sizeof(iph));
   iph.version = 4;
-  iph.saddr = iph6->ip6_src.__u6_addr.__u6_addr32[2] + iph6->ip6_src.__u6_addr.__u6_addr32[3];
-  iph.daddr = iph6->ip6_dst.__u6_addr.__u6_addr32[2] + iph6->ip6_dst.__u6_addr.__u6_addr32[3];
+  //iph.saddr = iph6->ip6_src.__u6_addr.__u6_addr32[2] + iph6->ip6_src.__u6_addr.__u6_addr32[3];
+  //iph.daddr = iph6->ip6_dst.__u6_addr.__u6_addr32[2] + iph6->ip6_dst.__u6_addr.__u6_addr32[3];
+  iph.saddr = iph6->ip6_src.u6_addr.u6_addr32[2] + iph6->ip6_src.u6_addr.u6_addr32[3];
+  iph.daddr = iph6->ip6_dst.u6_addr.u6_addr32[2] + iph6->ip6_dst.u6_addr.u6_addr32[3];
   iph.protocol = iph6->ip6_ctlun.ip6_un1.ip6_un1_nxt;
 
-  if(iph.protocol == 0x3C /* IPv6 destination option */) {
-    u_int8_t *options = (u_int8_t*)iph6 + sizeof(const struct ndpi_ip6_hdr);
+  if(iph.protocol == IPPROTO_DSTOPTS /* IPv6 destination option */) {
+    u_int8_t *options = (u_int8_t*)iph6 + sizeof(const struct ndpi_ipv6hdr);
 
     iph.protocol = options[0];
   }
 
   return(get_ndpi_flow(6, vlan_id, &iph, ip_offset,
-               sizeof(struct ndpi_ip6_hdr),
+               sizeof(struct ndpi_ipv6hdr),
                ntohs(iph6->ip6_ctlun.ip6_un1.ip6_un1_plen),
                src, dst, proto, iph6));
 }
@@ -909,7 +912,7 @@ static void updateFlowFeatures(struct ndpi_flow *flow,
                       const u_int64_t time,
                       u_int16_t vlan_id,
                       const struct ndpi_iphdr *iph,
-                      struct ndpi_ip6_hdr *iph6,
+                      struct ndpi_ipv6hdr *iph6,
                       u_int16_t ip_offset,
                       u_int16_t ipsize,
                       u_int16_t rawsize) {
@@ -957,7 +960,7 @@ static void updateFlowFeatures(struct ndpi_flow *flow,
 static struct ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *header, const u_char *packet) {
   const struct ndpi_ethhdr *ethernet;
   struct ndpi_iphdr *iph;
-  struct ndpi_ip6_hdr *iph6;
+  struct ndpi_ipv6hdr *iph6;
   u_int64_t time;
   u_int16_t type, ip_offset, ip_len;
   u_int16_t frag_off = 0, vlan_id = 0;
@@ -1047,9 +1050,9 @@ static struct ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *hea
       return NULL;
     }
   } else if(iph->version == 6) {
-    iph6 = (struct ndpi_ip6_hdr *)&packet[ip_offset];
+    iph6 = (struct ndpi_ipv6hdr *)&packet[ip_offset];
     proto = iph6->ip6_ctlun.ip6_un1.ip6_un1_nxt;
-    ip_len = sizeof(struct ndpi_ip6_hdr);
+    ip_len = sizeof(struct ndpi_ipv6hdr);
 
     if(proto == 0x3C /* IPv6 destination option */) {
       u_int8_t *options = (u_int8_t*)&packet[ip_offset+ip_len];
@@ -1110,7 +1113,7 @@ static struct ndpi_flow *packet_processing_by_pcap(const struct pcap_pkthdr *hea
 static struct ndpi_flow *packet_processing( const u_int64_t time,
 				      u_int16_t vlan_id,
 				      const struct ndpi_iphdr *iph,
-				      struct ndpi_ip6_hdr *iph6,
+				      struct ndpi_ipv6hdr *iph6,
 				      u_int16_t ip_offset,
 				      u_int16_t ipsize, u_int16_t rawsize) {
   struct ndpi_id_struct *src, *dst;
