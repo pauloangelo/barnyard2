@@ -1171,7 +1171,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
     { HogzillaSaveFlow(flow); /* save into  HBase */ return flow;}
 
     // After FIN or RST, save into HBase and remove from tree
-
+    printf("Check packet fin/rst\n");
     packet=&ndpi_flow->packet;
     if( packet!=NULL && packet->tcp!=NULL && ( (packet->tcp)->fin == 1 || (packet->tcp)->rst == 1) ){
         printf("Got a FIN/RST!\n");
