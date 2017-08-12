@@ -1172,7 +1172,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
 
     // After FIN or RST, save into HBase and remove from tree
 
-    packet=ndpi_flow->packet;
+    packet=&ndpi_flow->packet;
     if( packet!=NULL && packet->tcp!=NULL && ( (packet->tcp)->fin == 1 || (packet->tcp)->rst == 1) ){
         printf("Got a FIN/RST!\n");
         process_ndpi_collected_info(flow);
@@ -1786,7 +1786,7 @@ static void Hogzilla(Packet *p, void *event, uint32_t event_type, void *arg)
 
     if(p)
     {
-        flow=packet_processing_by_pcap( p->pkth, p->pkt);
+        flow=packet_processing_by_pcap( (const struct pcap_pkthdr *) p->pkth, p->pkt);
         if(flow != NULL && event!=NULL && flow->event==NULL)
         {
             flow->event= (struct Unified2EventCommon*)malloc(sizeof(Unified2EventCommon));
