@@ -236,11 +236,8 @@ void scan_idle_flows(){
 }
 
 void my_alarms(int sig) {
-
     scan_idle_flows();
-
-    alarm(ALARMS_RUN);
-    signal(SIGALRM, my_alarms);
+    signal(SIGALRM, my_alarms); alarm(ALARMS_RUN);
 }
 
 
