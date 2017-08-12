@@ -470,9 +470,10 @@ void HogzillaSaveFlows() {
     for(i=0; i< ndpi_info.num_idle_flows ;i++) {
         flow = ndpi_info.idle_flows[i];
 
-        HogzillaSaveFlow(flow);
+        //HogzillaSaveFlow(flow);
         printf("############# Saving one flow (%d)...\n",i);
-        continue;
+        printFlow(flow);
+        //continue;
 
         if(flow->saved == 0) {
             BatchMutation *rowMutation;
@@ -495,7 +496,7 @@ void HogzillaSaveFlows() {
         free_ndpi_flow(flow);
         ndpi_info.ndpi_flow_count--;
     }
-    return;
+    //return;
 
     while(!hbase_client_mutate_rows (hbase->client, table, batchRows ,attributes, &hbase->ioerror, &hbase->iargument, &hbase->error)) {
         if(hbase->error!=NULL)
@@ -1499,18 +1500,18 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations)
     g_ptr_array_add (mutations, mutation);
 
     // detected_protocol
-    if(flow->detected_protocol.app_protocol && flow->detected_protocol.master_protocol != 0) {
+    if(flow->detected_protocol.master_protocol) {
         char buf[64];
 
         sprintf(text[18], "%u.%u/%s",
                 flow->detected_protocol.master_protocol, flow->detected_protocol.app_protocol,
                 ndpi_protocol2name(ndpi_info.ndpi_struct,flow->detected_protocol, buf, sizeof(buf)));
-    } else
-    {
+    } else {
         sprintf(text[18], "%u/%s",
-                flow->detected_protocol.master_protocol,
-                ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.master_protocol));
+                flow->detected_protocol.app_protocol,
+                ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.app_protocol));
     }
+
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
