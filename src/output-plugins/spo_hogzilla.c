@@ -486,6 +486,8 @@ void HogzillaSaveFlows() {
             g_ptr_array_add (batchRows, rowMutation);
             rowMutation = NULL;
             flow->saved = 1;
+
+            printFlow(flow);
         }
 
         free_ndpi_flow(flow);
