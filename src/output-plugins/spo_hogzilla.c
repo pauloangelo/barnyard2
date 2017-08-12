@@ -1103,6 +1103,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
     u_int8_t *payload;
     u_int8_t src_to_dst_direction = 1;
     struct ndpi_proto nproto = { NDPI_PROTOCOL_UNKNOWN, NDPI_PROTOCOL_UNKNOWN };
+    struct ndpi_packet_struct *packet;
 
     if(iph)
       flow = get_ndpi_flow_info(IPVERSION, vlan_id, iph, NULL,
@@ -1124,18 +1125,18 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
       return(NULL);
     }
 
-    // TODO HZ
     // Interou 500 pacotes, salva no HBASE
     if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW)
     { HogzillaSaveFlow(flow); /* save into  HBase */ return flow;}
 
-    // TODO HZ
     // After FIN or RST, save into HBase and remove from tree
-    //if( packet->tcp->fin == 1 || packet->tcp->rst == 1 )
-    // if( packet->tcp->fin == 1 || packet->tcp->rst == 1 )
-    // {
-    //     HogzillaSaveFlow(flow);
-    // }
+
+    packet=flow->ndpi_flow->packet;
+    if( packet->tcp->fin == 1 || packet->tcp->rst == 1 ){
+        process_ndpi_collected_info(flow);
+        HogzillaSaveFlow(flow);
+        return flow;
+    }
 
     if(flow->detection_completed) {
         if(flow->check_extra_packets && ndpi_flow != NULL && ndpi_flow->check_extra_packets) {
