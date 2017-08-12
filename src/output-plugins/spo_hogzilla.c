@@ -699,17 +699,6 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
                                  u_int8_t **payload,
                                  u_int16_t *payload_len,
                                  u_int8_t *src_to_dst_direction) {
-    /*
-    u_int32_t idx, l4_offset, hashval;
-    struct ndpi_tcphdr *tcph = NULL;
-    struct ndpi_udphdr *udph = NULL;
-    u_int32_t lower_ip;
-    u_int32_t upper_ip;
-    u_int16_t lower_port;
-    u_int16_t upper_port;
-    struct ndpi_flow_info flow;
-    void *ret;
-    u_int8_t *l3;*/
 
     u_int32_t idx, l4_offset, hashval;
     struct ndpi_flow_info flow;
@@ -1172,6 +1161,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
     if(flow != NULL) {
         ndpi_flow = flow->ndpi_flow;
         updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction);
+        printFlow(flow);
     } else { // flow is NULL
       return(NULL);
     }
@@ -1184,6 +1174,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
 
     packet=&flow->ndpi_flow->packet;
     if( packet!=NULL && packet->tcp!=NULL && ( packet->tcp->fin == 1 || packet->tcp->rst == 1) ){
+        printf("Got a FIN/RST!\n");
         process_ndpi_collected_info(flow);
         HogzillaSaveFlow(flow);
         return flow;
@@ -1206,27 +1197,26 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
             }
         }
 
-        return flow;
-    }
+    }else{
 
+        flow->detected_protocol = ndpi_detection_process_packet(ndpi_info.ndpi_struct, ndpi_flow,
+                iph ? (uint8_t *)iph : (uint8_t *)iph6,
+                        ipsize, time, src, dst);
 
-    flow->detected_protocol = ndpi_detection_process_packet(ndpi_info.ndpi_struct, ndpi_flow,
-                                iph ? (uint8_t *)iph : (uint8_t *)iph6,
-                                ipsize, time, src, dst);
+        if((flow->detected_protocol.app_protocol != NDPI_PROTOCOL_UNKNOWN)
+                || ((proto == IPPROTO_UDP) && ((flow->src2dst_packets + flow->dst2src_packets) > 8))
+                || ((proto == IPPROTO_TCP) && ((flow->src2dst_packets + flow->dst2src_packets) > 10))) {
+            /* New protocol detected or give up */
+            flow->detection_completed = 1;
+            /* Check if we should keep checking extra packets */
+            if (ndpi_flow->check_extra_packets)
+                flow->check_extra_packets = 1;
 
-    if((flow->detected_protocol.app_protocol != NDPI_PROTOCOL_UNKNOWN)
-       || ((proto == IPPROTO_UDP) && ((flow->src2dst_packets + flow->dst2src_packets) > 8))
-       || ((proto == IPPROTO_TCP) && ((flow->src2dst_packets + flow->dst2src_packets) > 10))) {
-      /* New protocol detected or give up */
-      flow->detection_completed = 1;
-      /* Check if we should keep checking extra packets */
-      if (ndpi_flow->check_extra_packets)
-        flow->check_extra_packets = 1;
+            if(flow->detected_protocol.app_protocol == NDPI_PROTOCOL_UNKNOWN)
+                flow->detected_protocol = ndpi_detection_giveup(ndpi_info.ndpi_struct,flow->ndpi_flow);
 
-      if(flow->detected_protocol.app_protocol == NDPI_PROTOCOL_UNKNOWN)
-          flow->detected_protocol = ndpi_detection_giveup(ndpi_info.ndpi_struct,flow->ndpi_flow);
-
-      process_ndpi_collected_info(flow);
+            process_ndpi_collected_info(flow);
+        }
     }
 
     if(ndpi_info.last_idle_scan_time + IDLE_SCAN_PERIOD < ndpi_info.last_time) {
@@ -1497,11 +1487,11 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations)
     g_ptr_array_add (mutations, mutation);
 
     // detected_protocol
-    if(flow->detected_protocol.master_protocol) {
+    if(flow->detected_protocol.app_protocol) {
         char buf[64];
 
         sprintf(text[18], "%u.%u/%s",
-                flow->detected_protocol.master_protocol, flow->detected_protocol.master_protocol,
+                flow->detected_protocol.master_protocol, flow->detected_protocol.app_protocol,
                 ndpi_protocol2name(ndpi_info.ndpi_struct,flow->detected_protocol, buf, sizeof(buf)));
     } else
     {
