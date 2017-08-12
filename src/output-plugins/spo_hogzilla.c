@@ -46,8 +46,8 @@
 
 #define HOGZILLA_MAX_NDPI_FLOWS         500000
 #define HOGZILLA_MAX_NDPI_PKT_PER_FLOW  500
-#define HOGZILLA_MAX_IDLE_TIME    3000000
-#define IDLE_SCAN_PERIOD          1000
+#define HOGZILLA_MAX_IDLE_TIME          3000000
+#define IDLE_SCAN_PERIOD                1000
 //#define NUM_ROOTS                 512
 #define NUM_ROOTS                       1
 #define MAX_EXTRA_PACKETS_TO_CHECK      7
@@ -370,6 +370,7 @@ typedef struct ndpi_flow_info {
     void *src_id, *dst_id;
 
     u_int8_t saved;
+    u_int8_t fin_stage; /*1: 1st FIN, 2: FIN reply */
 } ndpi_flow_t;
 
 static char* ipProto2Name(u_int16_t proto_id) {
@@ -567,6 +568,9 @@ void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
     char str[100];
 
     printFlow(flow);
+
+    if(flow->saved==1)
+        return; /*already saved */
 
     hbase = connectHBase();
 
@@ -1171,14 +1175,18 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
     if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW)
     { HogzillaSaveFlow(flow); /* save into  HBase */ }
 
-    /* A FIN or RST is not sufficient. We need to check FIN-FIN-ACK. :P
-    // After FIN or RST, save into HBase and remove from tree
-    if(iph!=NULL && iph->protocol == IPPROTO_TCP && tcph!=NULL && ( tcph->fin == 1 || tcph->rst == 1) ){
-        printf("Got a FIN/RST!\n");
-        process_ndpi_collected_info(flow);
-        HogzillaSaveFlow(flow);
-        return flow;
-    }*/
+    // After FIN , save into HBase and remove from tree
+    if(iph!=NULL && iph->protocol == IPPROTO_TCP && tcph!=NULL){
+        if(tcph->fin == 1)
+            flow->fin_stage++;
+
+        if(flow->fin_stage>=2 && tcph->fin == 0 && tcph->ack == 1){ /* Connection finished! */
+            printf("Connection finished!\n");
+            process_ndpi_collected_info(flow);
+            HogzillaSaveFlow(flow);
+            return flow;
+        }
+    }
 
     if(flow->detection_completed) {
         if(flow->check_extra_packets && ndpi_flow != NULL && ndpi_flow->check_extra_packets) {
