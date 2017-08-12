@@ -509,6 +509,54 @@ void HogzillaSaveFlows() {
     g_ptr_array_free(batchRows,TRUE);
 }
 /* ***************************************************** */
+
+static void printFlow(struct ndpi_flow_info *flow) {
+
+  FILE *out = stdout;
+
+
+  if(true) {
+
+    fprintf(out, "\t%s ", ipProto2Name(flow->protocol));
+
+    fprintf(out, "%s%s%s:%u %s %s%s%s:%u ",
+        (flow->ip_version == 6) ? "[" : "",
+        flow->src_name, (flow->ip_version == 6) ? "]" : "", ntohs(flow->src_port),
+        flow->bidirectional ? "<->" : "->",
+        (flow->ip_version == 6) ? "[" : "",
+        flow->dst_name, (flow->ip_version == 6) ? "]" : "", ntohs(flow->dst_port)
+        );
+
+    if(flow->vlan_id > 0) fprintf(out, "[VLAN: %u]", flow->vlan_id);
+
+    if(flow->detected_protocol.master_protocol) {
+      char buf[64];
+
+      fprintf(out, "[proto: %u.%u/%s]",
+          flow->detected_protocol.master_protocol, flow->detected_protocol.app_protocol,
+          ndpi_protocol2name(ndpi_info.ndpi_struct,
+                 flow->detected_protocol, buf, sizeof(buf)));
+    } else
+      fprintf(out, "[proto: %u/%s]",
+          flow->detected_protocol.app_protocol,
+          ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.app_protocol));
+
+    fprintf(out, "[%u pkts/%llu bytes ", flow->src2dst_packets, (long long unsigned int) flow->src2dst_bytes);
+    fprintf(out, "%s %u pkts/%llu bytes]",
+        (flow->dst2src_packets > 0) ? "<->" : "->",
+        flow->dst2src_packets, (long long unsigned int) flow->dst2src_bytes);
+
+    if(flow->host_server_name[0] != '\0') fprintf(out, "[Host: %s]", flow->host_server_name);
+    if(flow->info[0] != '\0') fprintf(out, "[%s]", flow->info);
+
+    if(flow->ssh_ssl.client_info[0] != '\0') fprintf(out, "[client: %s]", flow->ssh_ssl.client_info);
+    if(flow->ssh_ssl.server_info[0] != '\0') fprintf(out, "[server: %s]", flow->ssh_ssl.server_info);
+    if(flow->bittorent_hash[0] != '\0') fprintf(out, "[BT Hash: %s]", flow->bittorent_hash);
+
+    fprintf(out, "\n");
+  }
+}
+/* ***************************************************** */
 void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
     char str[100];
 
@@ -631,54 +679,7 @@ int node_cmp(const void *a, const void *b) {
 
   return(0); /* notreached */
 }
-/* ***************************************************** */
 
-static void printFlow(struct ndpi_flow_info *flow) {
-
-  FILE *out = stdout;
-
-
-  if(true) {
-
-    fprintf(out, "\t%s ", ipProto2Name(flow->protocol));
-
-    fprintf(out, "%s%s%s:%u %s %s%s%s:%u ",
-        (flow->ip_version == 6) ? "[" : "",
-        flow->src_name, (flow->ip_version == 6) ? "]" : "", ntohs(flow->src_port),
-        flow->bidirectional ? "<->" : "->",
-        (flow->ip_version == 6) ? "[" : "",
-        flow->dst_name, (flow->ip_version == 6) ? "]" : "", ntohs(flow->dst_port)
-        );
-
-    if(flow->vlan_id > 0) fprintf(out, "[VLAN: %u]", flow->vlan_id);
-
-    if(flow->detected_protocol.master_protocol) {
-      char buf[64];
-
-      fprintf(out, "[proto: %u.%u/%s]",
-          flow->detected_protocol.master_protocol, flow->detected_protocol.app_protocol,
-          ndpi_protocol2name(ndpi_info.ndpi_struct,
-                 flow->detected_protocol, buf, sizeof(buf)));
-    } else
-      fprintf(out, "[proto: %u/%s]",
-          flow->detected_protocol.app_protocol,
-          ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.app_protocol));
-
-    fprintf(out, "[%u pkts/%llu bytes ", flow->src2dst_packets, (long long unsigned int) flow->src2dst_bytes);
-    fprintf(out, "%s %u pkts/%llu bytes]",
-        (flow->dst2src_packets > 0) ? "<->" : "->",
-        flow->dst2src_packets, (long long unsigned int) flow->dst2src_bytes);
-
-    if(flow->host_server_name[0] != '\0') fprintf(out, "[Host: %s]", flow->host_server_name);
-    if(flow->info[0] != '\0') fprintf(out, "[%s]", flow->info);
-
-    if(flow->ssh_ssl.client_info[0] != '\0') fprintf(out, "[client: %s]", flow->ssh_ssl.client_info);
-    if(flow->ssh_ssl.server_info[0] != '\0') fprintf(out, "[server: %s]", flow->ssh_ssl.server_info);
-    if(flow->bittorent_hash[0] != '\0') fprintf(out, "[BT Hash: %s]", flow->bittorent_hash);
-
-    fprintf(out, "\n");
-  }
-}
 
 /***********************************************/
 static struct ndpi_flow_info *get_ndpi_flow_info(
