@@ -148,6 +148,8 @@ static struct ndpi_flow_info *packet_processing_by_pcap(const struct pcap_pkthdr
 struct HogzillaHBase *connectHBase();
 static void closeHBase();
 static void printFlow(struct ndpi_flow_info *);
+static void node_idle_scan_walker(const void *, ndpi_VISIT , int , void *);
+
 
 
 /* If you need to instantiate the plugin's data structure, do it here */
