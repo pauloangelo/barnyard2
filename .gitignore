@@ -22,3 +22,8 @@ src/input-plugins/libspi.a
 src/output-plugins/libspo.a
 src/sfutil/libsfutil.a
 stamp-h1
+.autotools
+.cproject
+.project
+.settings/
+compile
