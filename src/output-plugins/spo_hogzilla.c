@@ -46,8 +46,8 @@
 
 #define HOGZILLA_MAX_NDPI_FLOWS         500000
 #define HOGZILLA_MAX_NDPI_PKT_PER_FLOW  500
-#define HOGZILLA_MAX_IDLE_TIME          3000000
-#define IDLE_SCAN_PERIOD                1000
+#define HOGZILLA_MAX_IDLE_TIME          30000 /* 1000=1sec */
+#define IDLE_SCAN_PERIOD                1000   /* 1000=1sec */
 //#define NUM_ROOTS                 512
 #define NUM_ROOTS                       1
 #define MAX_EXTRA_PACKETS_TO_CHECK      7
@@ -566,8 +566,6 @@ static void printFlow(struct ndpi_flow_info *flow) {
 /* ***************************************************** */
 void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
     char str[100];
-
-    printFlow(flow);
 
     if(flow->saved==1)
         return; /*already saved */
@@ -1166,7 +1164,6 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
     if(flow != NULL) {
         ndpi_flow = flow->ndpi_flow;
         updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction);
-        printFlow(flow);
     } else { // flow is NULL
       return(NULL);
     }
@@ -1177,11 +1174,9 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
 
     // After FIN , save into HBase and remove from tree
     if(iph!=NULL && iph->protocol == IPPROTO_TCP && tcph!=NULL){
-        if(tcph->fin == 1)
-            flow->fin_stage++;
+        if(tcph->fin == 1) flow->fin_stage++;
 
-        if(flow->fin_stage>=2 && tcph->fin == 0 && tcph->ack == 1){ /* Connection finished! */
-            printf("Connection finished!\n");
+        if(flow->fin_stage==2 && tcph->fin == 0 && tcph->ack == 1){ /* Connection finished! */
             process_ndpi_collected_info(flow);
             HogzillaSaveFlow(flow);
             return flow;
@@ -1502,7 +1497,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations)
     g_ptr_array_add (mutations, mutation);
 
     // detected_protocol
-    if(flow->detected_protocol.app_protocol) {
+    if(flow->detected_protocol.app_protocol && flow->detected_protocol.master_protocol != 0) {
         char buf[64];
 
         sprintf(text[18], "%u.%u/%s",
