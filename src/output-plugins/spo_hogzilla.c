@@ -205,6 +205,12 @@ void signal_callback_handler(int signum){
         printf("Caught signal SIGPIPE %d\n",signum);
 }
 
+void check_hbase_open(){
+    while(!thrift_transport_is_open (hbase->transport)){
+        closeHBase();
+        connectHBase();
+    }
+}
 
 /*
  * Function: HogzillaInit(char *)
@@ -496,7 +502,7 @@ void HogzillaSaveFlows() {
             rowMutation = NULL;
             flow->saved = 1;
 
-            printFlow(flow);
+            //printFlow(flow);
         }
 
         free_ndpi_flow(flow);
@@ -504,8 +510,9 @@ void HogzillaSaveFlows() {
     }
     //return;
 
-    closeHBase();
-    hbase = connectHBase();
+    //closeHBase();
+    //hbase = connectHBase();
+    check_hbase_open();
 
     while(!hbase_client_mutate_rows (hbase->client, table, batchRows ,attributes, &hbase->ioerror, &hbase->iargument, &hbase->error)) {
         if(hbase->error!=NULL)
@@ -595,6 +602,8 @@ void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
     Text * key ;
     key = g_byte_array_new ();
     g_byte_array_append (key,(guint*) str,  strlen(str));
+
+    check_hbase_open();
 
     //LogMessage("DEBUG => [Hogzilla] ID: %s , %s:%u <-> %s:%u \n", str,flow->lower_name,ntohs(flow->lower_port),flow->upper_name,ntohs(flow->upper_port));
     while(!hbase_client_mutate_row (hbase->client, table, key, mutations,attributes, &hbase->ioerror, &hbase->iargument, &hbase->error)) {
@@ -1509,12 +1518,16 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations)
     g_ptr_array_add (mutations, mutation);
 
     // detected_protocol
-    if(flow->detected_protocol.master_protocol) {
+    if(flow->detected_protocol.master_protocol && flow->detected_protocol.app_protocol!=NULL && flow->detected_protocol.app_protocol!=0) {
         char buf[64];
 
         sprintf(text[18], "%u.%u/%s",
                 flow->detected_protocol.master_protocol, flow->detected_protocol.app_protocol,
                 ndpi_protocol2name(ndpi_info.ndpi_struct,flow->detected_protocol, buf, sizeof(buf)));
+    } else if(flow->detected_protocol.master_protocol){
+        sprintf(text[18], "%u/%s",
+                flow->detected_protocol.master_protocol,
+                ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.master_protocol));
     } else {
         sprintf(text[18], "%u/%s",
                 flow->detected_protocol.app_protocol,
