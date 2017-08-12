@@ -206,7 +206,6 @@ void HogzillaSetup(void) {
 }
 
 void signal_callback_handler(int signum){
-
         printf("Caught signal SIGPIPE %d\n",signum);
 }
 
@@ -234,11 +233,11 @@ void scan_idle_flows(){
             ndpi_info.last_idle_scan_time = ndpi_info.last_time;
      }
 }
-
+/*
 void my_alarms(int sig) {
     scan_idle_flows();
     signal(SIGALRM, my_alarms); alarm(ALARMS_RUN);
-}
+}*/
 
 
 /*
@@ -273,9 +272,8 @@ static void HogzillaInit(char *args) {
     AddFuncToRestartList(SpoHogzillaRestartFunc, data);
 
     signal(SIGPIPE, signal_callback_handler);
-
-    /* Start timers using ALARMS */
-    signal(SIGALRM, my_alarms);  alarm(ALARMS_RUN);
+    /* Start timers using ALARMS: Is not running! :( */
+    //signal(SIGALRM, my_alarms);  alarm(ALARMS_RUN);
 }
 
 /*
@@ -1274,6 +1272,8 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
             process_ndpi_collected_info(flow);
         }
     }
+
+    scan_idle_flows();
 
     return flow;
 }
