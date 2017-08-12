@@ -291,14 +291,7 @@ static HogzillaData *ParseHogzillaArgs(char *args) {
     return data;
 }
 
-static void closeHBase(void) {
-    thrift_transport_close (hbase->transport, NULL);
-    g_object_unref (hbase->client);
-    g_object_unref (hbase->protocol);
-    g_object_unref (hbase->transport);
-    g_object_unref (hbase->socket);
-    hbase = NULL;
-}
+
 
 /*
  * Function: SpoHogzillaCleanExitFunc()
@@ -490,6 +483,7 @@ void HogzillaSaveFlows() {
 
             g_ptr_array_add (batchRows, rowMutation);
             rowMutation = NULL;
+            flow->saved = 1;
         }
 
         free_ndpi_flow(flow);
@@ -504,10 +498,11 @@ void HogzillaSaveFlows() {
         if(hbase->iargument!=NULL)
             LogMessage ("%s\n", hbase->iargument->message);
 
-        LogMessage("DEBUG => [Hogzilla] Error saving the flow below. Reconnecting and trying again in 5 seconds...\n");
+        LogMessage("DEBUG => [Hogzilla] Error saving the flow below. Reconnecting and trying again in 10 seconds...\n");
         closeHBase();
         sleep(5);
         hbase = connectHBase();
+        sleep(5);
     }
 
     g_ptr_array_foreach(batchRows,cleanBatchMutation,(gpointer) NULL);
@@ -590,11 +585,12 @@ void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
         if(hbase->iargument!=NULL)
             LogMessage ("%s\n", hbase->iargument->message);
 
-        LogMessage("DEBUG => [Hogzilla] Error saving the flow below. Reconnecting and trying again in 5 seconds...\n\tID: %s, %s:%u <-> %s:%u [pkts:%u] \n",
+        LogMessage("DEBUG => [Hogzilla] Error saving the flow below. Reconnecting and trying again in 10 seconds...\n\tID: %s, %s:%u <-> %s:%u [pkts:%u] \n",
                 str,flow->src_name,ntohs(flow->src_port),flow->dst_name,ntohs(flow->dst_port),flow->packets);
         closeHBase();
         sleep(5);
         hbase = connectHBase();
+        sleep(5);
     }
 
     flow->saved=1;
@@ -1243,9 +1239,16 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
 }
 
 
-
-struct HogzillaHBase *connectHBase()
-{
+static void closeHBase(void) {
+    thrift_transport_close (hbase->transport, NULL);
+    g_object_unref (hbase->client);
+    g_object_unref (hbase->protocol);
+    g_object_unref (hbase->transport);
+    g_object_unref (hbase->socket);
+    free(hbase);
+    hbase = NULL;
+}
+struct HogzillaHBase *connectHBase() {
 
     // Verifica se está aberta ou não
     if(hbase != NULL){return hbase;}
