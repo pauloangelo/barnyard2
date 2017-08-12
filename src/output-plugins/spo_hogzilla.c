@@ -570,6 +570,8 @@ void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
     if(flow->saved==1)
         return; /*already saved */
 
+    printFlow(flow);
+
     hbase = connectHBase();
 
     GHashTable * attributes = g_hash_table_new(g_str_hash, g_str_equal);
