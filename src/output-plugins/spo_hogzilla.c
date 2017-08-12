@@ -200,6 +200,11 @@ void HogzillaSetup(void) {
     //LogMessage("DEBUG => [Hogzilla] Line %d in file %s\n", __LINE__, __FILE__);
 }
 
+void signal_callback_handler(int signum){
+
+        printf("Caught signal SIGPIPE %d\n",signum);
+}
+
 
 /*
  * Function: HogzillaInit(char *)
@@ -231,6 +236,8 @@ static void HogzillaInit(char *args) {
     AddFuncToOutputList(Hogzilla, OUTPUT_TYPE__LOG, data);
     AddFuncToCleanExitList(SpoHogzillaCleanExitFunc, data);
     AddFuncToRestartList(SpoHogzillaRestartFunc, data);
+
+    signal(SIGPIPE, signal_callback_handler);
 }
 
 /*
@@ -470,9 +477,8 @@ void HogzillaSaveFlows() {
     for(i=0; i< ndpi_info.num_idle_flows ;i++) {
         flow = ndpi_info.idle_flows[i];
 
+        //printf("############# Saving one flow (%d)...\n",i);
         //HogzillaSaveFlow(flow);
-        printf("############# Saving one flow (%d)...\n",i);
-        printFlow(flow);
         //continue;
 
         if(flow->saved == 0) {
@@ -497,6 +503,9 @@ void HogzillaSaveFlows() {
         ndpi_info.ndpi_flow_count--;
     }
     //return;
+
+    closeHBase();
+    hbase = connectHBase();
 
     while(!hbase_client_mutate_rows (hbase->client, table, batchRows ,attributes, &hbase->ioerror, &hbase->iargument, &hbase->error)) {
         if(hbase->error!=NULL)
