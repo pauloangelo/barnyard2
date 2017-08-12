@@ -44,6 +44,8 @@
  *
  */
 
+
+#define ALARMS_RUN                      30 /* 30secs */
 #define HOGZILLA_MAX_NDPI_FLOWS         500000
 #define HOGZILLA_MAX_NDPI_PKT_PER_FLOW  500
 #define HOGZILLA_MAX_IDLE_TIME          30000 /* 1000=1sec */
@@ -212,6 +214,33 @@ void check_hbase_open(){
     }
 }
 
+void scan_idle_flows(){
+    if(ndpi_info.last_idle_scan_time + IDLE_SCAN_PERIOD < ndpi_info.last_time) {
+            /* scan for idle flows */
+            ndpi_twalk(ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_idle_scan_walker,NULL);
+
+            HogzillaSaveFlows();
+
+            /* remove idle flows (unfortunately we cannot do this inline) */
+            while (ndpi_info.num_idle_flows > 0){
+                ndpi_tdelete(ndpi_info.idle_flows[--ndpi_info.num_idle_flows], &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_cmp);
+                free(ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
+            }
+            // LogMessage("DEBUG => [Hogzilla] Flows in memory: %d \n", ndpi_info.ndpi_flow_count);
+            if(++ndpi_info.idle_scan_idx == NUM_ROOTS) ndpi_info.idle_scan_idx = 0;
+            ndpi_info.last_idle_scan_time = ndpi_info.last_time;
+     }
+}
+
+void my_alarms(int sig) {
+
+    scan_idle_flows();
+
+    alarm(ALARMS_RUN);
+    signal(SIGALRM, my_alarms);
+}
+
+
 /*
  * Function: HogzillaInit(char *)
  *
@@ -244,6 +273,9 @@ static void HogzillaInit(char *args) {
     AddFuncToRestartList(SpoHogzillaRestartFunc, data);
 
     signal(SIGPIPE, signal_callback_handler);
+
+    /* Start timers using ALARMS */
+    signal(SIGALRM, my_alarms);  alarm(ALARMS_RUN);
 }
 
 /*
@@ -587,7 +619,7 @@ void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
     if(flow->saved==1)
         return; /*already saved */
 
-    printFlow(flow);
+    //printFlow(flow);
 
     hbase = connectHBase();
 
@@ -1243,26 +1275,9 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
         }
     }
 
-    if(ndpi_info.last_idle_scan_time + IDLE_SCAN_PERIOD < ndpi_info.last_time) {
-        /* scan for idle flows */
-        ndpi_twalk(ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_idle_scan_walker,NULL);
-
-        HogzillaSaveFlows();
-
-        /* remove idle flows (unfortunately we cannot do this inline) */
-        while (ndpi_info.num_idle_flows > 0){
-            ndpi_tdelete(ndpi_info.idle_flows[--ndpi_info.num_idle_flows], &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_cmp);
-            free(ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
-        }
-
-        // LogMessage("DEBUG => [Hogzilla] Flows in memory: %d \n", ndpi_info.ndpi_flow_count);
-
-        if(++ndpi_info.idle_scan_idx == NUM_ROOTS) ndpi_info.idle_scan_idx = 0;
-        ndpi_info.last_idle_scan_time = ndpi_info.last_time;
-    }
-
     return flow;
 }
+
 
 
 static void closeHBase(void) {
