@@ -147,6 +147,7 @@ static void SpoHogzillaRestartFunc(int, void *);
 static struct ndpi_flow_info *packet_processing( const u_int64_t time, u_int16_t vlan_id, const struct ndpi_iphdr *iph, struct ndpi_ipv6hdr *iph6, u_int16_t ip_offset, u_int16_t ipsize, u_int16_t rawsize);
 static struct ndpi_flow_info *packet_processing_by_pcap(const struct pcap_pkthdr *header, const u_char *packet);
 struct HogzillaHBase *connectHBase();
+static void closeHBase();
 
 /* If you need to instantiate the plugin's data structure, do it here */
 HogzillaData *hogzilla_ptr;
