@@ -149,6 +149,7 @@ struct HogzillaHBase *connectHBase();
 static void closeHBase();
 static void printFlow(struct ndpi_flow_info *);
 static void node_idle_scan_walker(const void *, ndpi_VISIT , int , void *);
+int node_cmp(const void *, const void *);
 
 
 
