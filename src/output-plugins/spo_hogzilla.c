@@ -149,7 +149,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time, u_int16_t
 static struct ndpi_flow_info *packet_processing_by_pcap(const struct pcap_pkthdr *header, const u_char *packet);
 struct HogzillaHBase *connectHBase();
 static void closeHBase();
-static void printFlow(struct ndpi_flow_info);
+static void printFlow(struct ndpi_flow_info *);
 
 
 /* If you need to instantiate the plugin's data structure, do it here */
