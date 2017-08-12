@@ -375,6 +375,8 @@ typedef struct ndpi_flow_info {
     } ssh_ssl;
 
     void *src_id, *dst_id;
+
+    u_int8_t saved;
 } ndpi_flow_t;
 
 static char* ipProto2Name(u_int16_t proto_id) {
@@ -474,21 +476,24 @@ void HogzillaSaveFlows() {
 
     for(i=0; i< ndpi_info.num_idle_flows ;i++) {
         flow = ndpi_info.idle_flows[i];
-        BatchMutation *rowMutation;
-        rowMutation = g_object_new (TYPE_BATCH_MUTATION, NULL);
 
-        rowMutation->row = g_byte_array_new ();
-        sprintf(str, "%lld.%lld", flow->first_seen,flow->src_ip) ;
-        g_byte_array_append (rowMutation->row,(guint*) str,  strlen(str));
+        if(flow->saved == 0) {
+            BatchMutation *rowMutation;
+            rowMutation = g_object_new (TYPE_BATCH_MUTATION, NULL);
 
-        rowMutation->mutations  = g_ptr_array_new ();
-        Hogzilla_mutations(flow,rowMutation->mutations);
+            rowMutation->row = g_byte_array_new ();
+            sprintf(str, "%lld.%lld", flow->first_seen,flow->src_ip) ;
+            g_byte_array_append (rowMutation->row,(guint*) str,  strlen(str));
 
-        g_ptr_array_add (batchRows, rowMutation);
+            rowMutation->mutations  = g_ptr_array_new ();
+            Hogzilla_mutations(flow,rowMutation->mutations);
+
+            g_ptr_array_add (batchRows, rowMutation);
+            rowMutation = NULL;
+        }
 
         free_ndpi_flow(flow);
         ndpi_info.ndpi_flow_count--;
-        rowMutation = NULL;
     }
 
     while(!hbase_client_mutate_rows (hbase->client, table, batchRows ,attributes, &hbase->ioerror, &hbase->iargument, &hbase->error)) {
@@ -560,7 +565,7 @@ static void printFlow(struct ndpi_flow_info *flow) {
 void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
     char str[100];
 
-    printFlow(flow);
+    //printFlow(flow);
 
     hbase = connectHBase();
 
@@ -569,9 +574,6 @@ void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
     mutations = g_ptr_array_new ();
 
     Hogzilla_mutations(flow,mutations);
-
-    Text * table = g_byte_array_new ();
-    g_byte_array_append (table, (guint*) "hogzilla_flows", 14);
 
     //TODO HZ: find a better flow ID
     sprintf(str, "%lld.%lld", flow->first_seen,flow->src_ip) ;
@@ -595,7 +597,8 @@ void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
         hbase = connectHBase();
     }
 
-    g_byte_array_free(table,TRUE);
+    flow->saved=1;
+
     g_byte_array_free(key,TRUE);
     g_ptr_array_foreach(mutations,cleanMutation,(gpointer) NULL);
     g_ptr_array_free(mutations,TRUE);
@@ -1161,24 +1164,23 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
     if(flow != NULL) {
         ndpi_flow = flow->ndpi_flow;
         updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction);
-        printFlow(flow);
+        //printFlow(flow);
     } else { // flow is NULL
       return(NULL);
     }
 
     // Interou 500 pacotes, salva no HBASE
     if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW)
-    { HogzillaSaveFlow(flow); /* save into  HBase */ return flow;}
+    { HogzillaSaveFlow(flow); /* save into  HBase */ }
 
+    /* A FIN or RST is not sufficient. We need to check FIN-FIN-ACK. :P
     // After FIN or RST, save into HBase and remove from tree
-    printf("Check packet fin/rst\n");
-    //packet=&ndpi_flow->packet;
     if(iph!=NULL && iph->protocol == IPPROTO_TCP && tcph!=NULL && ( tcph->fin == 1 || tcph->rst == 1) ){
         printf("Got a FIN/RST!\n");
         process_ndpi_collected_info(flow);
         HogzillaSaveFlow(flow);
         return flow;
-    }
+    }*/
 
     if(flow->detection_completed) {
         if(flow->check_extra_packets && ndpi_flow != NULL && ndpi_flow->check_extra_packets) {
