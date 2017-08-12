@@ -1127,7 +1127,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
                 ndpi_flow->max_extra_packets_to_check = MAX_EXTRA_PACKETS_TO_CHECK;
             }
             if(ndpi_flow->num_extra_packets_checked < ndpi_flow->max_extra_packets_to_check) {
-                ndpi_process_extra_packet(ndpi_flow,
+                ndpi_process_extra_packet(ndpi_info.ndpi_struct, ndpi_flow,
                         iph ? (uint8_t *)iph : (uint8_t *)iph6,
                                 ipsize, time, src, dst);
                 if (ndpi_flow->check_extra_packets == 0) {
