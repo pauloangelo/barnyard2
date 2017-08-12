@@ -1172,7 +1172,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
     if(flow != NULL) {
         ndpi_flow = flow->ndpi_flow;
         updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction);
-        //printFlow(flow);
+        printFlow(flow);
     } else { // flow is NULL
       return(NULL);
     }
