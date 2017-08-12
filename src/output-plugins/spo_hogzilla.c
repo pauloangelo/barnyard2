@@ -577,6 +577,23 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
     }
 }
 /* ***************************************************** */
+static void patchIPv6Address(char *str) {
+  int i = 0, j = 0;
+
+  while(str[i] != '\0') {
+    if((str[i] == ':')
+       && (str[i+1] == '0')
+       && (str[i+2] == ':')) {
+      str[j++] = ':';
+      str[j++] = ':';
+      i += 3;
+    } else
+      str[j++] = str[i++];
+  }
+  if(str[j] != '\0') str[j] = '\0';
+}
+/* ***************************************************** */
+
 int node_cmp(const void *a, const void *b) {
   struct ndpi_flow_info *fa = (struct ndpi_flow_info*)a;
   struct ndpi_flow_info *fb = (struct ndpi_flow_info*)b;
