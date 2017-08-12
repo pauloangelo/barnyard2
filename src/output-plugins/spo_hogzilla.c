@@ -475,7 +475,7 @@ void HogzillaSaveFlows() {
         flow = ndpi_info.idle_flows[i];
 
         HogzillaSaveFlow(flow);
-        printf("Saving one flow...\n");
+        printf("############# Saving one flow (%d)...\n",i);
         continue;
 
         if(flow->saved == 0) {
@@ -571,7 +571,7 @@ static void printFlow(struct ndpi_flow_info *flow) {
 void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
     char str[100];
 
-    //printFlow(flow);
+    printFlow(flow);
 
     hbase = connectHBase();
 
