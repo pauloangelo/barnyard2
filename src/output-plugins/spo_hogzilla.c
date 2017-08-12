@@ -474,6 +474,10 @@ void HogzillaSaveFlows() {
     for(i=0; i< ndpi_info.num_idle_flows ;i++) {
         flow = ndpi_info.idle_flows[i];
 
+        HogzillaSaveFlow(flow);
+        printf("Saving one flow...\n");
+        continue;
+
         if(flow->saved == 0) {
             BatchMutation *rowMutation;
             rowMutation = g_object_new (TYPE_BATCH_MUTATION, NULL);
@@ -495,6 +499,7 @@ void HogzillaSaveFlows() {
         free_ndpi_flow(flow);
         ndpi_info.ndpi_flow_count--;
     }
+    return;
 
     while(!hbase_client_mutate_rows (hbase->client, table, batchRows ,attributes, &hbase->ioerror, &hbase->iargument, &hbase->error)) {
         if(hbase->error!=NULL)
