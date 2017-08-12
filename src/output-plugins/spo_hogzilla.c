@@ -44,21 +44,18 @@
  *
  */
 
-#define HOGZILLA_MAX_NDPI_FLOWS 500000
-#define HOGZILLA_MAX_NDPI_PKT_PER_FLOW 500
-//#define HOGZILLA_MAX_IDLE_TIME 3000000
-#define HOGZILLA_MAX_IDLE_TIME 1000 // 1s
+#define HOGZILLA_MAX_NDPI_FLOWS         500000
+#define HOGZILLA_MAX_NDPI_PKT_PER_FLOW  500
+//#define HOGZILLA_MAX_IDLE_TIME    3000000
 //#define IDLE_SCAN_PERIOD          1000
-#define IDLE_SCAN_PERIOD          1
-#define MAX_EXTRA_PACKETS_TO_CHECK  7
-#define TICK_RESOLUTION          1000
-
-
-
-#define GTP_U_V1_PORT        2152
-
-#define NUM_ROOTS                 512
-#define IDLE_SCAN_BUDGET         4096
+//#define NUM_ROOTS                 512
+#define HOGZILLA_MAX_IDLE_TIME          1
+#define NUM_ROOTS                       1
+#define IDLE_SCAN_PERIOD                1
+#define MAX_EXTRA_PACKETS_TO_CHECK      7
+#define TICK_RESOLUTION                 1000
+#define GTP_U_V1_PORT                   2152
+#define IDLE_SCAN_BUDGET                4096
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -431,7 +428,6 @@ static void node_proto_guess_walker(const void *node, ndpi_VISIT which, int dept
     if((which == ndpi_preorder) || (which == ndpi_leaf)) { /* Avoid walking the same node multiple times */
         if(flow->detected_protocol.master_protocol == NDPI_PROTOCOL_UNKNOWN) {
             node_guess_undetected_protocol(flow);
-            // printFlow(thread_id, flow);
         }
 
     }
@@ -627,10 +623,6 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
 
             if((flow->detected_protocol.master_protocol == NDPI_PROTOCOL_UNKNOWN) && !undetected_flows_deleted)
                 undetected_flows_deleted = 1;
-
-            //HogzillaSaveFlow(flow);
-            //free_ndpi_flow(flow);
-            //ndpi_info.ndpi_flow_count--;
 
             /* adding to a queue (we can't delete it from the tree inline ) */
             ndpi_info.idle_flows[ndpi_info.num_idle_flows++] = flow;
