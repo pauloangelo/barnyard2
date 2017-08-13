@@ -45,10 +45,10 @@
  */
 
 
-#define ALARMS_RUN                      30 /* 30secs */
+//#define ALARMS_RUN                      30 /* 30secs */
 #define HOGZILLA_MAX_NDPI_FLOWS         500000
 #define HOGZILLA_MAX_NDPI_PKT_PER_FLOW  500
-#define HOGZILLA_MAX_IDLE_TIME          30000 /* 1000=1sec */
+#define HOGZILLA_MAX_IDLE_TIME          600000 /* 1000=1sec */
 #define IDLE_SCAN_PERIOD                1000   /* 1000=1sec */
 //#define NUM_ROOTS                 512
 #define NUM_ROOTS                       1
@@ -56,6 +56,7 @@
 #define TICK_RESOLUTION                 1000
 #define GTP_U_V1_PORT                   2152
 #define IDLE_SCAN_BUDGET                4096
+#define DNS_FLAGS_MASK                  0x8000
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -136,6 +137,11 @@ typedef struct reader_hogzilla {
     //void *eventById[HOGZILLA_MAX_EVENT_TABLE];
     struct ndpi_flow_info *idle_flows[IDLE_SCAN_BUDGET];
 } reader_hogzilla;
+
+typedef struct {
+  uint8_t kind;
+  uint8_t size;
+} tcp_option_t;
 
 /* list of function prototypes for this output plugin */
 static void HogzillaInit(char *);
@@ -419,6 +425,24 @@ typedef struct ndpi_flow_info {
 
     u_int8_t saved;
     u_int8_t fin_stage; /*1: 1st FIN, 2: FIN reply */
+
+    /* variation estimation */
+    u_int32_t packet_size_variation;
+    u_int32_t packet_size_variation_expected;
+    u_int32_t window_scaling_variation;
+    u_int32_t window_scaling_variation_expected;
+
+    /* TODO: Counting */
+    u_int32_t packets_syn;
+    u_int32_t packets_ack;
+    u_int32_t packets_fin;
+    u_int32_t packets_rst;
+    u_int32_t packets_psh;
+
+
+    u_int64_t request_abs_time; /* timestamp */
+    u_int32_t response_rel_time; /* delta t between request and response */
+
 } ndpi_flow_t;
 
 static char* ipProto2Name(u_int16_t proto_id) {
@@ -811,10 +835,6 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
     flow.src_port = htons(*sport), flow.dst_port = htons(*dport);
     flow.hashval = hashval = flow.protocol + flow.vlan_id + flow.src_ip + flow.dst_ip + flow.src_port + flow.dst_port;
 
-    //  if(0)
-    //    printf("[NDPI] [%u][%u:%u <-> %u:%u]\n",
-    //     iph->protocol, lower_ip, ntohs(lower_port), upper_ip, ntohs(upper_port));
-
     idx = hashval % NUM_ROOTS;
     ret = ndpi_tfind(&flow, &ndpi_info.ndpi_flows_root[idx], node_cmp);
 
@@ -933,6 +953,11 @@ static struct ndpi_flow_info *get_ndpi_flow_info6(
                 src, dst, proto, payload, payload_len, src_to_dst_direction));
 }
 /* ***************************************************** */
+void variation_comput(u_int32_t *expected,u_int32_t * variationSum, u_int32_t currentSize){
+    *variationSum+= (((currentSize-(*expected))*(currentSize-(*expected)))*100)/(*expected);
+    *expected = (9*(*expected)+currentSize)/10;
+}
+/* ***************************************************** */
 static void updateFlowFeatures(struct ndpi_flow_info *flow,
         const u_int64_t time,
         u_int16_t vlan_id,
@@ -941,7 +966,17 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
         u_int16_t ip_offset,
         u_int16_t ipsize,
         u_int16_t rawsize,
-        u_int8_t src_to_dst_direction) {
+        u_int8_t src_to_dst_direction,
+        struct ndpi_tcphdr *tcph,
+        struct ndpi_udphdr *udph,
+        u_int8_t proto,
+        u_int8_t *payload,
+        u_int16_t payload_len) {
+
+    uint8_t* opt;
+    uint16_t mss;
+    uint8_t wscale;
+    struct ndpi_flow_struct *ndpi_flow = flow->ndpi_flow;
 
     if(flow->packets==0)
         flow->last_seen = time;
@@ -985,6 +1020,81 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
         flow->packets_without_payload++;
 
     flow->flow_duration = time - flow->first_seen;
+
+    variation_comput(&flow->packet_size_variation_expected,&flow->packet_size_variation,(u_int32_t)ipsize);
+
+    if(proto == IPPROTO_TCP){
+        flow->packets_syn += tcph->syn;
+        flow->packets_ack += tcph->ack;
+        flow->packets_fin += tcph->fin;
+        flow->packets_rst += tcph->rst;
+        flow->packets_psh += tcph->psh;
+
+        /* Optional TCP fields */
+        opt = tcph+sizeof(struct ndpi_tcphdr);
+        while( *opt != 0 && opt <= (tcph + 4*(*tcph)->doff)) {
+            tcp_option_t* _opt = (tcp_option_t*)opt;
+            if( _opt->kind == 1 /* NOP */ ) {
+                ++opt;  // NOP is one byte;
+                continue;
+            }
+            if( _opt->kind == 2 /* MSS 32bits*/ ) {
+                mss = ntohs((uint16_t)*(opt + sizeof(opt))); // Shouldn't it be 32bits?
+            }
+            if( _opt->kind == 3 /* Window scale 24bits */ ) {
+                wscale = (uint8_t)*(opt + sizeof(opt));
+            }
+            opt += _opt->size;
+        }
+
+        variation_comput(&flow->window_scaling_variation_expected,&flow->window_scaling_variation,(u_int32_t)wscale);
+
+        /*
+         * HTTP times
+         */
+        if(ndpi_flow->http_detected){
+            if(ndpi_flow->l4.tcp.http_stage==1 && flow->request_abs_time == 0){
+             /* HTTP Request */
+                flow->request_abs_time=time;
+            }else if(ndpi_flow->l4.tcp.http_stage==2 && ndpi_flow->packet.packet_direction == 1
+                    && flow->request_abs_time > 0 && flow->response_rel_time==0){
+             /* HTTP Response */
+                flow->response_rel_time=time-flow->request_abs_time;
+            }
+        }
+    }else if(proto == IPPROTO_UDP && flow->detected_protocol !=NULL &&
+            (flow->detected_protocol.master_protocol==NDPI_PROTOCOL_DNS ||
+                    flow->detected_protocol.app_protocol==NDPI_PROTOCOL_DNS ) &&
+                    payload_len > sizeof(struct ndpi_dns_packet_header)){
+
+        struct ndpi_dns_packet_header dns_header;
+        int is_query;
+
+        memcpy(&dns_header, (struct ndpi_dns_packet_header*) payload, sizeof(struct ndpi_dns_packet_header));
+        dns_header.tr_id          = ntohs(dns_header.tr_id);
+        dns_header.flags          = ntohs(dns_header.flags);
+        dns_header.num_queries    = ntohs(dns_header.num_queries);
+        dns_header.num_answers    = ntohs(dns_header.num_answers);
+        dns_header.authority_rrs  = ntohs(dns_header.authority_rrs);
+        dns_header.additional_rrs = ntohs(dns_header.additional_rrs);
+
+        /* 0x0000 QUERY */
+        if((dns_header.flags & DNS_FLAGS_MASK) == 0x0000)
+            is_query = 1;
+        /* 0x8000 RESPONSE */
+        else if((dns_header.flags & DNS_FLAGS_MASK) == 0x8000)
+            is_query = 0;
+        else
+            break;
+
+        if(!is_query && flow->request_abs_time == 0){
+            /* DNS Request */
+            flow->request_abs_time=time;
+        }else if(flow->request_abs_time > 0 && flow->response_rel_time==0){
+            /* DNS Response */
+            flow->response_rel_time=time-flow->request_abs_time;
+        }
+    }
 }
 /* ***************************************************** */
 
@@ -1219,14 +1329,16 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
 
     if(flow != NULL) {
         ndpi_flow = flow->ndpi_flow;
-        updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction);
     } else { // flow is NULL
       return(NULL);
     }
 
-    // Interou 500 pacotes, salva no HBASE
-    if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW)
-    { HogzillaSaveFlow(flow); /* save into  HBase */ }
+    // 500 packets, save it into HBASE
+    if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW) {
+        process_ndpi_collected_info(flow);
+        updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
+        HogzillaSaveFlow(flow); /* save into  HBase */
+    }
 
     // After FIN , save into HBase and remove from tree
     if(iph!=NULL && iph->protocol == IPPROTO_TCP && tcph!=NULL){
@@ -1234,6 +1346,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
 
         if(flow->fin_stage==2 && tcph->fin == 0 && tcph->ack == 1){ /* Connection finished! */
             process_ndpi_collected_info(flow);
+            updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
             HogzillaSaveFlow(flow);
             return flow;
         }
@@ -1277,6 +1390,8 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
             process_ndpi_collected_info(flow);
         }
     }
+
+    updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
     scan_idle_flows();
 
@@ -1693,10 +1808,8 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations)
     //    } dns;
 
 
-    if(flow->protocol == IPPROTO_UDP && flow->detected_protocol.master_protocol == NDPI_PROTOCOL_DNS )
-    {
-        // for debuging
-        //raise(SIGINT);
+    if(flow->protocol == IPPROTO_UDP && flow->detected_protocol.master_protocol == NDPI_PROTOCOL_DNS ) {
+        // for debug: raise(SIGINT);
         // dns.num_queries
         sprintf(text[28], "%d", flow->ndpi_flow->protos.dns.num_queries);
         mutation = g_object_new (TYPE_MUTATION, NULL);
@@ -1723,15 +1836,6 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations)
         g_byte_array_append (mutation->column,(guint*) "flow:dns_reply_code", 19);
         g_byte_array_append (mutation->value ,(guint**) text[30], strlen(text[30]));
         g_ptr_array_add (mutations, mutation);
-
-        //// dns.bad_packet DEPRECATED
-        //sprintf(text[31], "%d", flow->ndpi_flow->protos.dns.bad_packet);
-        //mutation = g_object_new (TYPE_MUTATION, NULL);
-        //mutation->column = g_byte_array_new ();
-        //mutation->value  = g_byte_array_new ();
-        //g_byte_array_append (mutation->column,(guint*) "flow:dns_bad_packet", 19);
-        //g_byte_array_append (mutation->value ,(guint**) text[31], strlen(text[31]));
-        //g_ptr_array_add (mutations, mutation);
 
         // dns.query_type
         sprintf(text[32], "%d", flow->ndpi_flow->protos.dns.query_type);
@@ -1761,8 +1865,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations)
         g_ptr_array_add (mutations, mutation);
     }
 
-    if(flow->protocol == IPPROTO_TCP && flow->detected_protocol.app_protocol == NDPI_PROTOCOL_HTTP )
-    {
+    if(flow->protocol == IPPROTO_TCP && flow->detected_protocol.app_protocol == NDPI_PROTOCOL_HTTP ) {
 
         // http.method
         sprintf(text[35], "%d", flow->ndpi_flow->http.method);
@@ -1792,6 +1895,43 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations)
             mutation->value  = g_byte_array_new ();
             g_byte_array_append (mutation->column,(guint*) "flow:http_content_type", 22);
             g_byte_array_append (mutation->value ,(guint**) flow->ndpi_flow->http.content_type,  strlen(flow->ndpi_flow->http.content_type));
+            g_ptr_array_add (mutations, mutation);
+        }
+
+        // http.num_request_headers
+        sprintf(text[36], "%d", flow->ndpi_flow->http.num_request_headers);
+        mutation = g_object_new (TYPE_MUTATION, NULL);
+        mutation->column = g_byte_array_new ();
+        mutation->value  = g_byte_array_new ();
+        g_byte_array_append (mutation->column,(guint*) "flow:http_num_request_headers", 29);
+        g_byte_array_append (mutation->value ,(guint**) text[36], strlen(text[36]));
+        g_ptr_array_add (mutations, mutation);
+
+        // http.num_response_headers
+        sprintf(text[37], "%d", flow->ndpi_flow->http.num_response_headers);
+        mutation = g_object_new (TYPE_MUTATION, NULL);
+        mutation->column = g_byte_array_new ();
+        mutation->value  = g_byte_array_new ();
+        g_byte_array_append (mutation->column,(guint*) "flow:http_num_response_headers", 30);
+        g_byte_array_append (mutation->value ,(guint**) text[37], strlen(text[37]));
+        g_ptr_array_add (mutations, mutation);
+
+        // http.request_version
+        sprintf(text[38], "%d", flow->ndpi_flow->http.request_version);
+        mutation = g_object_new (TYPE_MUTATION, NULL);
+        mutation->column = g_byte_array_new ();
+        mutation->value  = g_byte_array_new ();
+        g_byte_array_append (mutation->column,(guint*) "flow:http_request_version", 25);
+        g_byte_array_append (mutation->value ,(guint**) text[38], strlen(text[38]));
+        g_ptr_array_add (mutations, mutation);
+
+        // http.content_type
+        if(flow->ndpi_flow->http.response_status_code != NULL) {
+            mutation = g_object_new (TYPE_MUTATION, NULL);
+            mutation->column = g_byte_array_new ();
+            mutation->value  = g_byte_array_new ();
+            g_byte_array_append (mutation->column,(guint*) "flow:http_response_status_code", 30);
+            g_byte_array_append (mutation->value ,(guint**) flow->ndpi_flow->http.response_status_code,3);
             g_ptr_array_add (mutations, mutation);
         }
     }
