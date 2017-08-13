@@ -209,8 +209,14 @@ void signal_callback_handler(int signum){
         printf("Caught signal SIGPIPE %d\n",signum);
 }
 
+gboolean thrift_socket_is_open (ThriftTransport *transport) {
+  ThriftSocket *socket = THRIFT_SOCKET (transport);
+  return socket->sd != THRIFT_INVALID_SOCKET;
+}
+
 void check_hbase_open(){
-    while(!thrift_transport_is_open (hbase->transport)){
+    //while(!thrift_transport_is_open (hbase->transport)){
+    while(!thrift_socket_is_open (hbase->transport)){
         closeHBase();
         connectHBase();
     }
