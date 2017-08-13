@@ -1756,7 +1756,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations)
         g_ptr_array_add (mutations, mutation);
     }
 
-    if(flow->protocol == IPPROTO_TCP && flow->detected_protocol.master_protocol == NDPI_PROTOCOL_HTTP )
+    if(flow->protocol == IPPROTO_TCP && flow->detected_protocol.app_protocol == NDPI_PROTOCOL_HTTP )
     {
 
         // http.method
