@@ -1032,7 +1032,7 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
 
         /* Optional TCP fields */
         opt = tcph+sizeof(struct ndpi_tcphdr);
-        while( *opt != 0 && opt <= (tcph + 4*(*tcph)->doff)) {
+        while( *opt != 0 && opt <= (tcph + 4*tcph->doff)) {
             tcp_option_t* _opt = (tcp_option_t*)opt;
             if( _opt->kind == 1 /* NOP */ ) {
                 ++opt;  // NOP is one byte;
@@ -1062,13 +1062,13 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
                 flow->response_rel_time=time-flow->request_abs_time;
             }
         }
-    }else if(proto == IPPROTO_UDP && flow->detected_protocol !=NULL &&
+    }else if(proto == IPPROTO_UDP &&
             (flow->detected_protocol.master_protocol==NDPI_PROTOCOL_DNS ||
                     flow->detected_protocol.app_protocol==NDPI_PROTOCOL_DNS ) &&
                     payload_len > sizeof(struct ndpi_dns_packet_header)){
 
         struct ndpi_dns_packet_header dns_header;
-        int is_query;
+        int is_query=-1;
 
         memcpy(&dns_header, (struct ndpi_dns_packet_header*) payload, sizeof(struct ndpi_dns_packet_header));
         dns_header.tr_id          = ntohs(dns_header.tr_id);
@@ -1084,13 +1084,11 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
         /* 0x8000 RESPONSE */
         else if((dns_header.flags & DNS_FLAGS_MASK) == 0x8000)
             is_query = 0;
-        else
-            break;
 
-        if(!is_query && flow->request_abs_time == 0){
+        if(is_query==1 && flow->request_abs_time == 0){
             /* DNS Request */
             flow->request_abs_time=time;
-        }else if(flow->request_abs_time > 0 && flow->response_rel_time==0){
+        }else if(is_query==0 && flow->request_abs_time > 0 && flow->response_rel_time==0){
             /* DNS Response */
             flow->response_rel_time=time-flow->request_abs_time;
         }
