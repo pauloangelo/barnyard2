@@ -57,6 +57,9 @@
 #define GTP_U_V1_PORT                   2152
 #define IDLE_SCAN_BUDGET                4096
 #define DNS_FLAGS_MASK                  0x8000
+#define MAX_CONTACTS                    100
+#define CONTACT_NEGLIGIBLE_PAYLOAD      10 /* bytes */
+#define CONTACT_MIN_INTERTIME           5 /* seconds */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -438,11 +441,15 @@ typedef struct ndpi_flow_info {
     u_int32_t packets_fin;
     u_int32_t packets_rst;
     u_int32_t packets_psh;
-
-
-    u_int64_t request_abs_time; /* timestamp */
+    u_int32_t tcp_retransmissions;
+    /* Request and responses times for HTTP and DNS */
+    u_int64_t request_abs_time, C_last_time; /* timestamp */
     u_int32_t response_rel_time; /* delta t between request and response */
-
+    /* Contacts in TCP connections */
+    u_int32_t C_number_of_contacts;
+    u_int64_t C_src2dst_bytes[MAX_CONTACTS],   C_dst2src_bytes[MAX_CONTACTS];
+    u_int32_t C_src2dst_packets[MAX_CONTACTS], C_dst2src_packets[MAX_CONTACTS];
+    u_int64_t C_start_time[MAX_CONTACTS], C_duration[MAX_CONTACTS];
 } ndpi_flow_t;
 
 static char* ipProto2Name(u_int16_t proto_id) {
@@ -1029,6 +1036,7 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
         flow->packets_fin += tcph->fin;
         flow->packets_rst += tcph->rst;
         flow->packets_psh += tcph->psh;
+        flow->tcp_retransmissions += ndpi_flow->packet.tcp_retransmission;
 
         /* Optional TCP fields */
         opt = tcph+sizeof(struct ndpi_tcphdr);
@@ -1093,6 +1101,35 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
             flow->response_rel_time=time-flow->request_abs_time;
         }
     }
+
+    /* Count contacts */
+    if(payload_len >= CONTACT_NEGLIGIBLE_PAYLOAD && flow->C_number_of_contacts <= MAX_CONTACTS){ /* in contact */
+
+        if(time - flow->C_last_time >= CONTACT_MIN_INTERTIME) { /* new contact */
+            flow->C_number_of_contacts++;
+
+            if(flow->C_number_of_contacts>1)
+                flow->C_duration[flow->C_number_of_contacts-2]=flow->C_last_time-flow->C_start_time[flow->C_number_of_contacts-2];
+
+            if(flow->C_number_of_contacts<= MAX_CONTACTS)
+                flow->C_start_time[flow->C_number_of_contacts-1] = time;
+        }
+
+        if(flow->C_number_of_contacts<= MAX_CONTACTS) {
+            /*  statistics for the current contact */
+            if(src_to_dst_direction){
+                flow->C_src2dst_bytes[flow->C_number_of_contacts-1]+= rawsize;
+                flow->C_src2dst_packets[flow->C_number_of_contacts-1]++;
+            }else{
+                flow->C_dst2src_bytes[flow->C_number_of_contacts-1]+= rawsize;
+                flow->C_dst2src_packets[flow->C_number_of_contacts-1]++;
+            }
+
+            /* last valid contact */
+            flow->C_last_time = time;
+        }
+    }
+
 }
 /* ***************************************************** */
 
@@ -1331,25 +1368,6 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
       return(NULL);
     }
 
-    // 500 packets, save it into HBASE
-    if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW) {
-        process_ndpi_collected_info(flow);
-        updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
-        HogzillaSaveFlow(flow); /* save into  HBase */
-    }
-
-    // After FIN , save into HBase and remove from tree
-    if(iph!=NULL && iph->protocol == IPPROTO_TCP && tcph!=NULL){
-        if(tcph->fin == 1) flow->fin_stage++;
-
-        if(flow->fin_stage==2 && tcph->fin == 0 && tcph->ack == 1){ /* Connection finished! */
-            process_ndpi_collected_info(flow);
-            updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
-            HogzillaSaveFlow(flow);
-            return flow;
-        }
-    }
-
     if(flow->detection_completed) {
         if(flow->check_extra_packets && ndpi_flow != NULL && ndpi_flow->check_extra_packets) {
             if(ndpi_flow->num_extra_packets_checked == 0 && ndpi_flow->max_extra_packets_to_check == 0) {
@@ -1390,6 +1408,20 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
     }
 
     updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
+
+    // After FIN , save into HBase and remove from tree
+    if(iph!=NULL && iph->protocol == IPPROTO_TCP && tcph!=NULL){
+        if(tcph->fin == 1) flow->fin_stage++;
+
+        if(flow->fin_stage==2 && tcph->fin == 0 && tcph->ack == 1){ /* Connection finished! */
+            HogzillaSaveFlow(flow);
+        }
+    }
+
+    // 500 packets, save it into HBASE
+    if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW) {
+        HogzillaSaveFlow(flow); /* save into  HBase */
+    }
 
     scan_idle_flows();
 
@@ -1935,20 +1967,12 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations)
     }
 
 
-    //Unified2EventCommon *event;
-    //typedef struct _Unified2EventCommon
-    //{
-    //   uint32_t sensor_id;
-    //   uint32_t event_id;
-    //   uint32_t event_second;
-    //   uint32_t event_microsecond;
-    //   uint32_t signature_id;
-    //   uint32_t generator_id;
-    //   uint32_t signature_revision;
-    //   uint32_t classification_id;
-    //   uint32_t priority_id;
-    //} Unified2EventCommon;
-    //
+    /* TODO: Gen contacts statistics
+       u_int64_t C_src2dst_bytes_avg, C_src2dst_bytes_std,   C_dst2src_bytes_avg, C_dst2src_bytes_std;
+       u_int32_t C_src2dst_packets_avg,C_src2dst_packets_std, C_dst2src_packets_avg,C_dst2src_packets_std;
+       u_int64_t C_relative_time_avg, C_relative_time_std, C_duration_avg, C_duration_std;
+     */
+
 }
 
 
