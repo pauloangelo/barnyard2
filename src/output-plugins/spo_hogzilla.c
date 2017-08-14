@@ -378,56 +378,111 @@ static void SpoHogzillaRestartFunc(int signal, void *arg) {
 
 // flow tracking
 typedef struct ndpi_flow_info {
+    /* control or not useful vars */
     u_int32_t hashval;
-    u_int32_t src_ip;
-    u_int32_t dst_ip;
-    u_int16_t src_port;
-    u_int16_t dst_port;
-    u_int8_t  detection_completed, protocol, bidirectional, check_extra_packets;
-    u_int16_t vlan_id;
-    struct ndpi_flow_struct *ndpi_flow;
-    char src_name[32], dst_name[32];
     u_int8_t ip_version;
-
     u_int64_t last_seen;
-    u_int64_t src2dst_bytes, dst2src_bytes;
-    u_int32_t src2dst_packets, dst2src_packets;
-
-    u_int64_t bytes;
-    u_int32_t packets;
-
-    u_int32_t max_packet_size;
-    u_int32_t min_packet_size;
-    u_int32_t avg_packet_size;
-    u_int64_t avg_inter_time;
-    u_int64_t payload_bytes;
-    u_int32_t payload_first_size;
-    u_int32_t payload_avg_size;
-    u_int32_t payload_min_size;
-    u_int32_t payload_max_size;
-    u_int32_t packets_without_payload;
-    u_int64_t flow_duration;
+    u_int8_t  detection_completed,  check_extra_packets;
+    u_int16_t vlan_id;
+    u_int8_t saved;
+    u_int8_t fin_stage; /*1: 1st FIN, 2: FIN reply */
+    void *src_id, *dst_id;
+    u_int64_t request_abs_time; /* timestamp used to compute response time for services */
+    u_int64_t C_last_time; /* timestamp a contact was noticed */
     u_int64_t first_seen;
-    u_int32_t inter_time [HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
-    u_int64_t packet_size[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
 
-    Unified2EventCommon *event;
-
-    // result only, not used for flow identification
-    ndpi_protocol detected_protocol;
-
+    /* context and specific information */
+    char bittorent_hash[41];
     char info[96];
     char host_server_name[192];
-    char bittorent_hash[41];
-
     struct {
       char client_info[48], server_info[48];
     } ssh_ssl;
 
-    void *src_id, *dst_id;
+    /* basic vars */
+    u_int32_t src_ip;
+    u_int32_t dst_ip;
+    u_int16_t src_port;
+    u_int16_t dst_port;
+    ndpi_protocol detected_protocol;
+    u_int8_t  protocol, bidirectional;
+    struct ndpi_flow_struct *ndpi_flow;
+    char src_name[32], dst_name[32];
+    u_int64_t bytes;
+    u_int32_t packets;
 
-    u_int8_t saved;
-    u_int8_t fin_stage; /*1: 1st FIN, 2: FIN reply */
+    /*
+     * packets statistics
+     */
+    u_int64_t flow_duration;
+    u_int64_t src2dst_pay_bytes, dst2src_pay_bytes;
+    u_int32_t src2dst_packets, dst2src_packets;
+    /* we are using just payload sizes */
+    //u_int32_t max_packet_size;
+    //u_int32_t min_packet_size;
+    //u_int32_t avg_packet_size;
+    //u_int32_t std_packet_size;
+    u_int64_t arrival_time[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
+    u_int8_t  direction[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
+    u_int32_t inter_time[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
+    u_int64_t packet_pay_size[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
+    u_int64_t packet_header_size[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
+
+    u_int64_t inter_time_avg;
+    u_int64_t inter_time_min;
+    u_int64_t inter_time_max;
+    u_int64_t inter_time_std;
+
+    u_int64_t src2dst_inter_time_avg;
+    u_int64_t src2dst_inter_time_min;
+    u_int64_t src2dst_inter_time_max;
+    u_int64_t src2dst_inter_time_std;
+
+    u_int64_t dst2src_inter_time_avg;
+    u_int64_t dst2src_inter_time_min;
+    u_int64_t dst2src_inter_time_max;
+    u_int64_t dst2src_inter_time_std;
+
+    u_int64_t payload_bytes;
+    u_int32_t payload_bytes_avg;
+    u_int32_t payload_bytes_std;
+    u_int32_t payload_bytes_min;
+    u_int32_t payload_bytes_max;
+    u_int32_t payload_bytes_first;
+    u_int32_t packets_without_payload;
+
+    src2dst_pay_bytes_avg
+    src2dst_pay_bytes_min
+    src2dst_pay_bytes_max
+    src2dst_pay_bytes_std
+    dst2src_pay_bytes_avg
+    dst2src_pay_bytes_min
+    dst2src_pay_bytes_max
+    dst2src_pay_bytes_std
+
+    dst2src_pay_bytes_rate /*bytes per second */
+    src2dst_pay_bytes_rate /*bytes per second */
+    dst2src_packets_rate /*packets per second */
+    src2dst_packets_rate /*packets per second */
+
+    src2dst_header_bytes_avg
+    src2dst_header_bytes_min
+    src2dst_header_bytes_max
+    src2dst_header_bytes_std
+    dst2src_header_bytes_avg
+    dst2src_header_bytes_min
+    dst2src_header_bytes_max
+    dst2src_header_bytes_std
+
+
+    /* TCP exclusive features (counting vars) */
+    u_int32_t packets_syn;
+    u_int32_t packets_ack;
+    u_int32_t packets_fin;
+    u_int32_t packets_rst;
+    u_int32_t packets_psh;
+    u_int32_t packets_urg;
+    u_int32_t tcp_retransmissions;
 
     /* variation estimation */
     u_int32_t packet_size_variation;
@@ -435,21 +490,102 @@ typedef struct ndpi_flow_info {
     u_int32_t window_scaling_variation;
     u_int32_t window_scaling_variation_expected;
 
-    /* TODO: Counting */
-    u_int32_t packets_syn;
-    u_int32_t packets_ack;
-    u_int32_t packets_fin;
-    u_int32_t packets_rst;
-    u_int32_t packets_psh;
-    u_int32_t tcp_retransmissions;
-    /* Request and responses times for HTTP and DNS */
-    u_int64_t request_abs_time, C_last_time; /* timestamp */
-    u_int32_t response_rel_time; /* delta t between request and response */
-    /* Contacts in TCP connections */
+
+    /*
+     * Contacts during connections
+     */
     u_int32_t C_number_of_contacts;
-    u_int64_t C_src2dst_bytes[MAX_CONTACTS],   C_dst2src_bytes[MAX_CONTACTS];
+    u_int64_t C_src2dst_pay_bytes[MAX_CONTACTS],   C_dst2src_pay_bytes[MAX_CONTACTS];
+    u_int64_t C_src2dst_header_bytes[MAX_CONTACTS],   C_dst2src_header_bytes[MAX_CONTACTS];
     u_int32_t C_src2dst_packets[MAX_CONTACTS], C_dst2src_packets[MAX_CONTACTS];
-    u_int64_t C_start_time[MAX_CONTACTS], C_duration[MAX_CONTACTS];
+    C_dst2src_pay_bytes_rate[MAX_CONTACTS]
+    C_src2dst_pay_bytes_rate[MAX_CONTACTS]
+    C_dst2src_packets_rate[MAX_CONTACTS]
+    C_src2dst_packets_rate[MAX_CONTACTS]
+    u_int64_t C_start_time[MAX_CONTACTS],      C_duration[MAX_CONTACTS];
+    u_int32_t C_packets_syn[MAX_CONTACTS];
+    u_int32_t C_packets_ack[MAX_CONTACTS];
+    u_int32_t C_packets_fin[MAX_CONTACTS];
+    u_int32_t C_packets_rst[MAX_CONTACTS];
+    u_int32_t C_packets_psh[MAX_CONTACTS];
+    u_int32_t C_packets_urg[MAX_CONTACTS];
+    u_int32_t C_tcp_retransmissions[MAX_CONTACTS];
+
+    C_src2dst_pay_bytes_avg
+    C_src2dst_pay_bytes_min
+    C_src2dst_pay_bytes_max
+    C_src2dst_pay_bytes_std
+    C_src2dst_header_bytes_avg
+    C_src2dst_header_bytes_min
+    C_src2dst_header_bytes_max
+    C_src2dst_header_bytes_std
+    C_src2dst_packets_avg
+    C_src2dst_packets_min
+    C_src2dst_packets_max
+    C_src2dst_packets_std
+    C_dst2src_pay_bytes_avg
+    C_dst2src_pay_bytes_min
+    C_dst2src_pay_bytes_max
+    C_dst2src_pay_bytes_std
+    C_dst2src_header_bytes_avg
+    C_dst2src_header_bytes_min
+    C_dst2src_header_bytes_max
+    C_dst2src_header_bytes_std
+    C_dst2src_packets_avg
+    C_dst2src_packets_min
+    C_dst2src_packets_max
+    C_dst2src_packets_std
+    //avg, min, max e std pra todos abaixo
+    C_packets_syn
+    C_packets_ack
+    C_packets_fin
+    C_packets_rst
+    C_packets_psh
+    C_packets_urg
+    C_tcp_retransmissions
+    C_dst2src_pay_bytes_rate
+    C_src2dst_pay_bytes_rate
+    C_dst2src_packets_rate
+    C_src2dst_packets_rate
+
+    C_duration_avg
+    C_duration_min
+    C_duration_max
+    C_duration_std
+    C_idletime_avg
+    C_idletime_min
+    C_idletime_max
+    C_idletime_std
+    flow_use_time
+    flow_idle_time
+
+
+
+    /*
+     * packets statistics
+     */
+    /* Request and responses times for HTTP and DNS */
+    u_int32_t response_rel_time; /* delta t between request and response */
+
+
+    /*
+     * mean, min, max, std para
+     * - Payloads no dois sentidos
+     * - bytes nos dois sentidos
+     * - Tempos  de chegada
+     * -
+     *
+     *
+     * - Tempo da conexão
+     * - Tempo idle
+     * - Tempo de contato ativo
+     *
+     */
+
+    /* label information, from misuse IDS */
+    Unified2EventCommon *event;
+
+
 } ndpi_flow_t;
 
 static char* ipProto2Name(u_int16_t proto_id) {
@@ -992,6 +1128,8 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
     {
         flow->inter_time[flow->packets] = time - flow->last_seen;
         flow->packet_size[flow->packets]=rawsize;
+        flow->direction[flow->packets]=src_to_dst_direction;
+xxx
         flow->avg_packet_size  = (flow->avg_packet_size*flow->packets  + rawsize)/(flow->packets+1);
         flow->avg_inter_time  = (flow->avg_inter_time*flow->packets  + (time - flow->last_seen))/(flow->packets+1);
         flow->payload_avg_size = (flow->payload_avg_size*flow->packets + ipsize )/(flow->packets+1);
@@ -1036,6 +1174,7 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
         flow->packets_fin += tcph->fin;
         flow->packets_rst += tcph->rst;
         flow->packets_psh += tcph->psh;
+        flow->packets_urg += tcph->urg;
         flow->tcp_retransmissions += ndpi_flow->packet.tcp_retransmission;
 
         /* Optional TCP fields */
@@ -1108,8 +1247,10 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
         if(time - flow->C_last_time >= CONTACT_MIN_INTERTIME) { /* new contact */
             flow->C_number_of_contacts++;
 
-            if(flow->C_number_of_contacts>1)
+            /* Update last contact features */
+            if(flow->C_number_of_contacts>1){
                 flow->C_duration[flow->C_number_of_contacts-2]=flow->C_last_time-flow->C_start_time[flow->C_number_of_contacts-2];
+            }
 
             if(flow->C_number_of_contacts<= MAX_CONTACTS)
                 flow->C_start_time[flow->C_number_of_contacts-1] = time;
@@ -1130,6 +1271,29 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
         }
     }
 
+}
+/* ***************************************************** */
+
+static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
+
+    int i,min;
+    min = ndpi_min(flow->packets,HOGZILLA_MAX_NDPI_PKT_PER_FLOW);
+
+    /* Means */
+    for(i=0; i< min; i++) {
+
+           flow->avg_packet_size  = (flow->avg_packet_size*flow->packets  + rawsize)/(flow->packets+1);
+           flow->avg_inter_time   = (flow->avg_inter_time*flow->packets  + (time - flow->last_seen))/(flow->packets+1);
+           flow->payload_avg_size = (flow->payload_avg_size*flow->packets + ipsize )/(flow->packets+1);
+    }
+
+    /* STDs */
+    for(i=0; i< min; i++) {
+
+           flow->avg_packet_size  = (flow->avg_packet_size*flow->packets  + rawsize)/(flow->packets+1);
+           flow->avg_inter_time   = (flow->avg_inter_time*flow->packets  + (time - flow->last_seen))/(flow->packets+1);
+           flow->payload_avg_size = (flow->payload_avg_size*flow->packets + ipsize )/(flow->packets+1);
+    }
 }
 /* ***************************************************** */
 
@@ -1472,12 +1636,13 @@ struct HogzillaHBase *connectHBase() {
 }
 
 
-void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations)
-{
+void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
 
     char text[40][50];
-
     Mutation *mutation;
+
+    updateFlowCountsBeforeInsert(flow);
+
 
     // lower_ip
     mutation = g_object_new (TYPE_MUTATION, NULL);
