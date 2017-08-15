@@ -1380,8 +1380,8 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
     avg_min_max_std(flow->C_idletime, series_size, NULL, 0, &flow->C_idletime_avg,
                     &flow->C_idletime_min, &flow->C_idletime_max, &flow->C_idletime_std);
 
-    flow->flow_use_time=sum_series(flow->C_duration, series_size, NULL, 0);
-    flow->flow_idle_time=sum_series(flow->C_idletime, series_size, NULL, 0);
+    flow->flow_use_time=sum_series(flow->C_duration, series_size);
+    flow->flow_idle_time=sum_series(flow->C_idletime, series_size);
 
 
 
@@ -1887,15 +1887,13 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     g_ptr_array_add (mutations, mutation);
     c++;
 
-    // protocol  c=5
-    text[c]=ipProto2Name(flow->protocol);
+    char * proto = ipProto2Name(flow->protocol);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
     g_byte_array_append (mutation->column,(guint*) "flow:protocol", 13);
-    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_byte_array_append (mutation->value ,(guint*) proto,  strlen(proto));
     g_ptr_array_add (mutations, mutation);
-    c++;
 
     // bidirectional  c=6
     sprintf(text[c], "%ld", flow->bidirectional);
