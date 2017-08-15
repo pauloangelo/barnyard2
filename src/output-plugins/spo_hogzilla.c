@@ -1320,13 +1320,15 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
         counter++;
     }
 
-    *avg=*avg/counter;
+    if(counter!=0)
+    	*avg=*avg/counter;
 
     for(i=0; i<series_size && ( filter==NULL || (filter[i]+not)%2 ) ;i++ ){
     	*std += (*avg-series[i])*(*avg-series[i]);
     }
 
-    *std=*std/counter;
+    if(counter!=0)
+    	*std=*std/counter;
 }
 
 /* ***************************************************** */
