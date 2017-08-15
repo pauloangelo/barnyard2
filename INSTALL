@@ -1,0 +1,16 @@
+
+- Install nDPI
+    git clone http://github.com/ntop/nDPI.git
+    cd nDPI
+    ./autogen.sh
+    ./configure
+    make
+    make install
+- Install thrift
+
+wget http://ftp.unicamp.br/pub/apache/thrift/0.10.0/thrift-0.10.0.tar.gz
+tar xzvf thrift-0.10.0.tar.gz
+cd thrift-0.10.0
+./configure --without-java
+make
+make install
