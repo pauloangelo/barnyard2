@@ -172,10 +172,8 @@ static u_int32_t size_id_struct = 0;		//< ID tracking structure size
 static u_int32_t size_flow_struct = 0;
 static u_int16_t decode_tunnels = 0;
 
-// YYY
 GHashTable * attributes;
 Text * table ;
-
 
 /*
  * Function: HogzillaSetup()
@@ -425,7 +423,7 @@ typedef struct ndpi_flow_info {
 
     u_int64_t arrival_time[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
     u_int8_t  direction[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
-    u_int32_t inter_time[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
+    u_int64_t inter_time[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
     u_int64_t packet_pay_size[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
     u_int64_t packet_header_size[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
 
@@ -438,38 +436,38 @@ typedef struct ndpi_flow_info {
     u_int64_t dst2src_inter_time_max;
     u_int64_t dst2src_inter_time_std;
 
-    u_int32_t src2dst_pay_bytes_avg;
-    u_int32_t src2dst_pay_bytes_min;
-    u_int32_t src2dst_pay_bytes_max;
-    u_int32_t src2dst_pay_bytes_std;
-    u_int32_t dst2src_pay_bytes_avg;
-    u_int32_t dst2src_pay_bytes_min;
-    u_int32_t dst2src_pay_bytes_max;
-    u_int32_t dst2src_pay_bytes_std;
+    u_int64_t src2dst_pay_bytes_avg;
+    u_int64_t src2dst_pay_bytes_min;
+    u_int64_t src2dst_pay_bytes_max;
+    u_int64_t src2dst_pay_bytes_std;
+    u_int64_t dst2src_pay_bytes_avg;
+    u_int64_t dst2src_pay_bytes_min;
+    u_int64_t dst2src_pay_bytes_max;
+    u_int64_t dst2src_pay_bytes_std;
 
-    u_int32_t dst2src_pay_bytes_rate; /*bytes per second */
-    u_int32_t src2dst_pay_bytes_rate; /*bytes per second */
-    u_int32_t dst2src_packets_rate;   /*packets per second */
-    u_int32_t src2dst_packets_rate;   /*packets per second */
+    u_int64_t dst2src_pay_bytes_rate; /*bytes per second */
+    u_int64_t src2dst_pay_bytes_rate; /*bytes per second */
+    u_int64_t dst2src_packets_rate;   /*packets per second */
+    u_int64_t src2dst_packets_rate;   /*packets per second */
 
     u_int64_t inter_time_avg;
     u_int64_t inter_time_min;
     u_int64_t inter_time_max;
     u_int64_t inter_time_std;
 
-    u_int32_t payload_bytes_avg;
-    u_int32_t payload_bytes_std;
-    u_int32_t payload_bytes_min;
-    u_int32_t payload_bytes_max;
+    u_int64_t payload_bytes_avg;
+    u_int64_t payload_bytes_std;
+    u_int64_t payload_bytes_min;
+    u_int64_t payload_bytes_max;
 
-    u_int32_t src2dst_header_bytes_avg;
-    u_int32_t src2dst_header_bytes_min;
-    u_int32_t src2dst_header_bytes_max;
-    u_int32_t src2dst_header_bytes_std;
-    u_int32_t dst2src_header_bytes_avg;
-    u_int32_t dst2src_header_bytes_min;
-    u_int32_t dst2src_header_bytes_max;
-    u_int32_t dst2src_header_bytes_std;
+    u_int64_t src2dst_header_bytes_avg;
+    u_int64_t src2dst_header_bytes_min;
+    u_int64_t src2dst_header_bytes_max;
+    u_int64_t src2dst_header_bytes_std;
+    u_int64_t dst2src_header_bytes_avg;
+    u_int64_t dst2src_header_bytes_min;
+    u_int64_t dst2src_header_bytes_max;
+    u_int64_t dst2src_header_bytes_std;
 
     /* TCP exclusive features (counting vars) */
     u_int32_t packets_syn;
@@ -502,6 +500,7 @@ typedef struct ndpi_flow_info {
     u_int64_t C_src2dst_packets_rate[MAX_CONTACTS];
     u_int64_t C_start_time[MAX_CONTACTS];
     u_int64_t C_duration[MAX_CONTACTS];
+    u_int64_t C_idletime[MAX_CONTACTS]; /*idle time after ith contact*/
     u_int64_t C_packets_syn[MAX_CONTACTS];
     u_int64_t C_packets_ack[MAX_CONTACTS];
     u_int64_t C_packets_fin[MAX_CONTACTS];
@@ -1014,8 +1013,6 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
             newflow->src_port = htons(*sport), newflow->dst_port = htons(*dport);
             newflow->ip_version = version;
             //PA NEWFLOW
-            newflow->min_packet_size=999999;
-            newflow->payload_min_size=999999;
             newflow->event=NULL;
             //AP
 
@@ -1132,7 +1129,7 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
 
     uint8_t* opt;
     uint16_t mss;
-    uint8_t wscale;
+    uint8_t wscale=0;
     struct ndpi_flow_struct *ndpi_flow = flow->ndpi_flow;
 
     if(flow->packets==0)
@@ -1140,47 +1137,33 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
 
     if(flow->packets<HOGZILLA_MAX_NDPI_PKT_PER_FLOW)
     {
+        flow->arrival_time[flow->packets] = time;
         flow->inter_time[flow->packets] = time - flow->last_seen;
-        flow->packet_size[flow->packets]=rawsize;
+        flow->packet_pay_size[flow->packets]=ipsize;
+        flow->packet_header_size[flow->packets]=rawsize-ipsize;
         flow->direction[flow->packets]=src_to_dst_direction;
-xxx
-        flow->avg_packet_size  = (flow->avg_packet_size*flow->packets  + rawsize)/(flow->packets+1);
-        flow->avg_inter_time  = (flow->avg_inter_time*flow->packets  + (time - flow->last_seen))/(flow->packets+1);
-        flow->payload_avg_size = (flow->payload_avg_size*flow->packets + ipsize )/(flow->packets+1);
     }
     flow->packets++, flow->bytes += rawsize;
     flow->last_seen = time;
 
-    if(flow->min_packet_size>rawsize)
-        flow->min_packet_size = rawsize;
-
-    if(flow->max_packet_size<rawsize)
-        flow->max_packet_size = rawsize;
-
-    if(flow->payload_min_size>ipsize)
-        flow->payload_min_size = ipsize;
-
-    if(flow->payload_max_size<ipsize)
-        flow->payload_max_size = ipsize;
-
     flow->payload_bytes += ipsize;
     if(flow->packets==1)
     {
-        flow->payload_first_size = ipsize;
+        flow->payload_bytes_first = ipsize;
         flow->first_seen=time;
     }
 
     if(src_to_dst_direction)
-      flow->src2dst_packets++, flow->src2dst_bytes += rawsize;
+      flow->src2dst_packets++, flow->src2dst_pay_bytes += ipsize, flow->src2dst_header_bytes+=rawsize-ipsize;
     else
-      flow->dst2src_packets++, flow->dst2src_bytes += rawsize;
+      flow->dst2src_packets++, flow->dst2src_pay_bytes += ipsize, flow->dst2src_header_bytes+=rawsize-ipsize;
 
     if(ipsize==0)
         flow->packets_without_payload++;
 
     flow->flow_duration = time - flow->first_seen;
 
-    variation_comput(&flow->packet_size_variation_expected,&flow->packet_size_variation,(u_int32_t)ipsize);
+    variation_comput(&flow->payload_size_variation_expected,&flow->payload_size_variation,(u_int32_t)ipsize);
 
     if(proto == IPPROTO_TCP){
         flow->packets_syn += tcph->syn;
@@ -1264,6 +1247,7 @@ xxx
             /* Update last contact features */
             if(flow->C_number_of_contacts>1){
                 flow->C_duration[flow->C_number_of_contacts-2]=flow->C_last_time-flow->C_start_time[flow->C_number_of_contacts-2];
+                flow->C_idletime[flow->C_number_of_contacts-2]=time - flow->C_last_time;
             }
 
             if(flow->C_number_of_contacts<= MAX_CONTACTS)
@@ -1301,99 +1285,153 @@ xxx
 
 
 }
-/* ***************************************************** */
-static void avg_min_max_std(u_int64_t *series[],int series_size, u_int64_t *avg, u_int64_t *min, u_int64_t *max, u_int64_t *std){
+/* *****************************************************
+ *
+ * (filter[i]+not)%2 - filter in {0,1} and not={0,1}
+ *
+ *  */
+
+static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter, int not,
+		u_int64_t *avg, u_int64_t *min, u_int64_t *max, u_int64_t *std){
 
     int i;
+    int counter=0;
     *min=sizeof(u_int64_t);
     *max=0;
     *avg=0;
     *std=0;
 
-    for(i=0; i<series_size ;i++ ){
+    for(i=0; i<series_size && ( filter==NULL || (filter[i]+not)%2 ) ;i++ ){
 
-        if(*series[i] < *min)
-            *min = *series[i];
+        if(series[i] < *min)
+            *min = series[i];
 
-        if(*series[i] > *max)
-            *max = *series[i];
+        if(series[i] > *max)
+            *max = series[i];
 
-        *avg+=*series[i];
+        *avg+=series[i];
+        counter++;
     }
 
-    *avg=*avg/series_size;
+    *avg=*avg/counter;
 
-    for(i=0; i<series_size ;i++ ){
-        *std = (*avg-*series[i])*(*avg-*series[i]);
+    for(i=0; i<series_size && ( filter==NULL || (filter[i]+not)%2 ) ;i++ ){
+    	*std += (*avg-series[i])*(*avg-series[i]);
     }
 
-    *std=*std/2;
+    *std=*std/counter;
+}
+
+/* ***************************************************** */
+
+static u_int64_t sum_series(u_int64_t *series,int series_size){
+	int i; u_int64_t counter;
+	for(i=0;i<series_size;i++)
+		counter += series[i];
+	return counter;
 }
 /* ***************************************************** */
 
 static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
 
-    int i,min;
-    min = ndpi_min(flow->packets,HOGZILLA_MAX_NDPI_PKT_PER_FLOW);
-
-    /* Means */
-    for(i=0; i< min; i++) {
-
-           flow->avg_packet_size  = (flow->avg_packet_size*flow->packets  + rawsize)/(flow->packets+1);
-           flow->avg_inter_time   = (flow->avg_inter_time*flow->packets  + (time - flow->last_seen))/(flow->packets+1);
-           flow->payload_avg_size = (flow->payload_avg_size*flow->packets + ipsize )/(flow->packets+1);
-    }
-
-    /* STDs */
-    for(i=0; i< min; i++) {
-
-           flow->avg_packet_size  = (flow->avg_packet_size*flow->packets  + rawsize)/(flow->packets+1);
-           flow->avg_inter_time   = (flow->avg_inter_time*flow->packets  + (time - flow->last_seen))/(flow->packets+1);
-           flow->payload_avg_size = (flow->payload_avg_size*flow->packets + ipsize )/(flow->packets+1);
-    }
+    int series_size,i;
 
 
-    avg_min_max_std(&flow->C_src2dst_pay_bytes,flow->C_number_of_contacts,&flow->C_src2dst_pay_bytes_avg,
+    flow->flow_duration=flow->last_seen-flow->first_seen;
+
+    series_size=ndpi_min(flow->C_number_of_contacts,MAX_CONTACTS);
+
+    avg_min_max_std(flow->C_src2dst_pay_bytes,series_size, NULL, 0,&flow->C_src2dst_pay_bytes_avg,
                     &flow->C_src2dst_pay_bytes_min,&flow->C_src2dst_pay_bytes_max,&flow->C_src2dst_pay_bytes_std);
-    avg_min_max_std(&flow->C_src2dst_header_bytes,flow->C_number_of_contacts, &flow->C_src2dst_header_bytes_avg, 
+    avg_min_max_std(flow->C_src2dst_header_bytes,series_size, NULL, 0, &flow->C_src2dst_header_bytes_avg, 
                     &flow->C_src2dst_header_bytes_min, &flow->C_src2dst_header_bytes_max, &flow->C_src2dst_header_bytes_std);
-    avg_min_max_std(&flow->C_src2dst_packets,flow->C_number_of_contacts, &flow->C_src2dst_packets_avg,
+    avg_min_max_std(flow->C_src2dst_packets,series_size, NULL, 0, &flow->C_src2dst_packets_avg,
                     &flow->C_src2dst_packets_min, &flow->C_src2dst_packets_max, &flow->C_src2dst_packets_std);
-    avg_min_max_std(&flow->C_dst2src_pay_bytes,flow->C_number_of_contacts, &flow->C_dst2src_pay_bytes_avg,
+    avg_min_max_std(flow->C_dst2src_pay_bytes,series_size, NULL, 0, &flow->C_dst2src_pay_bytes_avg,
                     &flow->C_dst2src_pay_bytes_min, &flow->C_dst2src_pay_bytes_max, &flow->C_dst2src_pay_bytes_std);
-    avg_min_max_std(&flow->C_dst2src_header_bytes,flow->C_number_of_contacts,&flow->C_dst2src_header_bytes_avg,
+    avg_min_max_std(flow->C_dst2src_header_bytes,series_size, NULL, 0,&flow->C_dst2src_header_bytes_avg,
                     &flow->C_dst2src_header_bytes_min, &flow->C_dst2src_header_bytes_max, &flow->C_dst2src_header_bytes_std);
-    avg_min_max_std(&flow->C_dst2src_packets,flow->C_number_of_contacts,&flow->C_dst2src_packets_avg,
+    avg_min_max_std(flow->C_dst2src_packets,series_size, NULL, 0,&flow->C_dst2src_packets_avg,
                     &flow->C_dst2src_packets_min, &flow->C_dst2src_packets_max, &flow->C_dst2src_packets_std);
-    avg_min_max_std(&flow->C_packets_syn,flow->C_number_of_contacts, &flow->C_packets_syn_avg,
+    avg_min_max_std(flow->C_packets_syn,series_size, NULL, 0, &flow->C_packets_syn_avg,
                     &flow->C_packets_syn_min, &flow->C_packets_syn_max, &flow->C_packets_syn_std);
-    avg_min_max_std(&flow->C_packets_ack,flow->C_number_of_contacts, &flow->C_packets_ack_avg,
+    avg_min_max_std(flow->C_packets_ack,series_size, NULL, 0, &flow->C_packets_ack_avg,
                     &flow->C_packets_ack_min, &flow->C_packets_ack_max, &flow->C_packets_ack_std);
-    avg_min_max_std(&flow->C_packets_fin,flow->C_number_of_contacts, &flow->C_packets_fin_avg,
+    avg_min_max_std(flow->C_packets_fin,series_size, NULL, 0, &flow->C_packets_fin_avg,
                     &flow->C_packets_fin_min, &flow->C_packets_fin_max, &flow->C_packets_fin_std);
-    avg_min_max_std(&flow->C_packets_rst,flow->C_number_of_contacts, &flow->C_packets_rst_avg,
+    avg_min_max_std(flow->C_packets_rst,series_size, NULL, 0, &flow->C_packets_rst_avg,
                     &flow->C_packets_rst_min, &flow->C_packets_rst_max, &flow->C_packets_rst_std);
-    avg_min_max_std(&flow->C_packets_psh,flow->C_number_of_contacts, &flow->C_packets_psh_avg,
+    avg_min_max_std(flow->C_packets_psh,series_size, NULL, 0, &flow->C_packets_psh_avg,
                     &flow->C_packets_psh_min, &flow->C_packets_psh_max, &flow->C_packets_psh_std);
-    avg_min_max_std(&flow->C_packets_urg,flow->C_number_of_contacts, &flow->C_packets_urg_avg,
+    avg_min_max_std(flow->C_packets_urg,series_size, NULL, 0, &flow->C_packets_urg_avg,
                     &flow->C_packets_urg_min, &flow->C_packets_urg_max, &flow->C_packets_urg_std);
-    avg_min_max_std(&flow->C_tcp_retransmissions,flow->C_number_of_contacts, &flow->C_tcp_retransmissions_avg,
+    avg_min_max_std(flow->C_tcp_retransmissions,series_size, NULL, 0, &flow->C_tcp_retransmissions_avg,
                     &flow->C_tcp_retransmissions_min, &flow->C_tcp_retransmissions_max, &flow->C_tcp_retransmissions_std);
-    avg_min_max_std(&flow->C_dst2src_pay_bytes_rate,flow->C_number_of_contacts, &flow->C_dst2src_pay_bytes_rate_avg,
+    avg_min_max_std(flow->C_dst2src_pay_bytes_rate,series_size, NULL, 0, &flow->C_dst2src_pay_bytes_rate_avg,
                     &flow->C_dst2src_pay_bytes_rate_min, &flow->C_dst2src_pay_bytes_rate_max, &flow->C_dst2src_pay_bytes_rate_std);
-    avg_min_max_std(&flow->C_src2dst_pay_bytes_rate, flow->C_number_of_contacts, &flow->C_src2dst_pay_bytes_rate_avg,
+    avg_min_max_std(flow->C_src2dst_pay_bytes_rate, series_size, NULL, 0, &flow->C_src2dst_pay_bytes_rate_avg,
                     &flow->C_src2dst_pay_bytes_rate_min, &flow->C_src2dst_pay_bytes_rate_max, &flow->C_src2dst_pay_bytes_rate_std);
-    avg_min_max_std(&flow->C_dst2src_packets_rate, flow->C_number_of_contacts, &flow->C_dst2src_packets_rate_avg,
+    avg_min_max_std(flow->C_dst2src_packets_rate, series_size, NULL, 0, &flow->C_dst2src_packets_rate_avg,
                     &flow->C_dst2src_packets_rate_min, &flow->C_dst2src_packets_rate_max, &flow->C_dst2src_packets_rate_std);
-    avg_min_max_std(&flow->C_src2dst_packets_rate, flow->C_number_of_contacts, &flow->C_src2dst_packets_rate_avg,
+    avg_min_max_std(flow->C_src2dst_packets_rate, series_size, NULL, 0, &flow->C_src2dst_packets_rate_avg,
                     &flow->C_src2dst_packets_rate_min, &flow->C_src2dst_packets_rate_max, &flow->C_src2dst_packets_rate_std);
-    avg_min_max_std(&flow->C_duration, flow->C_number_of_contacts, &flow->C_duration_avg,
+    avg_min_max_std(flow->C_duration, series_size, NULL, 0, &flow->C_duration_avg,
                     &flow->C_duration_min, &flow->C_duration_max, &flow->C_duration_std);
-    avg_min_max_std(&flow->C_idletime, flow->C_number_of_contacts, &flow->C_idletime_avg,
+    avg_min_max_std(flow->C_idletime, series_size, NULL, 0, &flow->C_idletime_avg,
                     &flow->C_idletime_min, &flow->C_idletime_max, &flow->C_idletime_std);
 
-    u_int64_t flow_use_time;
-    u_int64_t flow_idle_time;
+    flow->flow_use_time=sum_series(flow->C_duration, series_size, NULL, 0);
+    flow->flow_idle_time=sum_series(flow->C_idletime, series_size, NULL, 0);
+
+
+
+    series_size=ndpi_min(flow->packets,HOGZILLA_MAX_NDPI_PKT_PER_FLOW);
+
+    avg_min_max_std(flow->packet_pay_size, series_size, flow->direction, 0, &flow->src2dst_pay_bytes_avg,
+                    &flow->src2dst_pay_bytes_min, &flow->src2dst_pay_bytes_max, &flow->src2dst_pay_bytes_std);
+    avg_min_max_std(flow->packet_pay_size, series_size, flow->direction, 1, &flow->dst2src_pay_bytes_avg,
+                    &flow->dst2src_pay_bytes_min, &flow->dst2src_pay_bytes_max, &flow->dst2src_pay_bytes_std);
+
+    avg_min_max_std(flow->packet_header_size, series_size, flow->direction, 0, &flow->src2dst_header_bytes_avg,
+                    &flow->src2dst_header_bytes_min, &flow->src2dst_header_bytes_max, &flow->src2dst_header_bytes_std);
+    avg_min_max_std(flow->packet_header_size, series_size, flow->direction, 1, &flow->dst2src_header_bytes_avg,
+                    &flow->dst2src_header_bytes_min, &flow->dst2src_header_bytes_max, &flow->dst2src_header_bytes_std);
+
+
+    int s2dc,d2sc,s2dlast,d2slast;
+    s2dc=d2sc=0;
+    s2dlast=d2slast=flow->first_seen;
+    u_int64_t inter_time_src2dst[HOGZILLA_MAX_NDPI_PKT_PER_FLOW],
+			  inter_time_dst2src[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
+
+    for(i=0;i<series_size;i++){
+    	if(flow->direction[i]){
+    		inter_time_src2dst[s2dc] = flow->arrival_time[s2dc] - s2dlast;
+    		s2dlast=flow->arrival_time[s2dc];
+    		s2dc++;
+    	}else{
+    		inter_time_dst2src[d2sc] = flow->arrival_time[d2sc] - d2slast;
+    		d2slast=flow->arrival_time[d2sc];
+    		d2sc++;
+    	}
+    }
+
+    avg_min_max_std(inter_time_src2dst, s2dc, NULL, 0, &flow->src2dst_inter_time_avg,
+                    &flow->src2dst_inter_time_min, &flow->src2dst_inter_time_max, &flow->src2dst_inter_time_std);
+    avg_min_max_std(inter_time_dst2src, d2sc, NULL, 0, &flow->dst2src_inter_time_avg,
+                    &flow->dst2src_inter_time_min, &flow->dst2src_inter_time_max, &flow->dst2src_inter_time_std);
+
+
+    avg_min_max_std(flow->inter_time, series_size, NULL, 0, &flow->inter_time_avg,
+                     &flow->inter_time_min, &flow->inter_time_max, &flow->inter_time_std);
+    avg_min_max_std(flow->payload_bytes, series_size, NULL, 0, &flow->payload_bytes_avg,
+                     &flow->payload_bytes_min, &flow->payload_bytes_max, &flow->payload_bytes_std);
+
+
+    flow->dst2src_pay_bytes_rate = flow->dst2src_pay_bytes/flow->flow_duration;
+    flow->src2dst_pay_bytes_rate = flow->src2dst_pay_bytes/flow->flow_duration;
+    flow->dst2src_packets_rate = flow->dst2src_packets/flow->flow_duration;
+    flow->src2dst_packets_rate = flow->src2dst_packets/flow->flow_duration;
 
 }
 /* ***************************************************** */
@@ -1738,13 +1776,62 @@ struct HogzillaHBase *connectHBase() {
 
 void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
 
-    char text[40][50];
+    int c=0;
+    char text[150][50];
     Mutation *mutation;
 
     updateFlowCountsBeforeInsert(flow);
 
+    // first_seen  c=0
+    sprintf(text[c], "%ld", flow->first_seen);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:first_seen", 15);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
 
-    // lower_ip
+    // bittorent_hash
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*)  "flow:bittorent_hash", 19);
+    g_byte_array_append (mutation->value ,(guint**) flow->bittorent_hash,  strlen(flow->bittorent_hash));
+    g_ptr_array_add (mutations, mutation);
+
+    // info
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*)  "flow:info", 9);
+    g_byte_array_append (mutation->value ,(guint**) flow->info,  strlen(flow->info));
+    g_ptr_array_add (mutations, mutation);
+
+    // host_server_name
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*)  "flow:host_server_name", 21);
+    g_byte_array_append (mutation->value ,(guint**) flow->host_server_name,  strlen(flow->host_server_name));
+    g_ptr_array_add (mutations, mutation);
+
+    // ssh_ssl.client_info
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*)  "flow:ssh_ssl_client_info", 24);
+    g_byte_array_append (mutation->value ,(guint**) flow->ssh_ssl.client_info,  strlen(flow->ssh_ssl.client_info));
+    g_ptr_array_add (mutations, mutation);
+
+    // ssh_ssl.server_info
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*)  "flow:ssh_ssl_server_info", 24);
+    g_byte_array_append (mutation->value ,(guint**) flow->ssh_ssl.server_info,  strlen(flow->ssh_ssl.server_info));
+    g_ptr_array_add (mutations, mutation);
+
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1752,7 +1839,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     g_byte_array_append (mutation->value ,(guint*) &flow->src_ip,  sizeof(u_int32_t));
     g_ptr_array_add (mutations, mutation);
 
-    // upper_ip
+
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1760,206 +1847,1476 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     g_byte_array_append (mutation->value ,(guint*) &flow->dst_ip,  sizeof(u_int32_t));
     g_ptr_array_add (mutations, mutation);
 
-    // lower_name
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:src_name", 13);
-    g_byte_array_append (mutation->value ,(guint**) flow->src_name,  strlen(flow->src_name));
-    g_ptr_array_add (mutations, mutation);
+//    // src_ip  c=1
+//    sprintf(text[c], "%ld", flow->src_ip);
+//    mutation = g_object_new (TYPE_MUTATION, NULL);
+//    mutation->column = g_byte_array_new ();
+//    mutation->value  = g_byte_array_new ();
+//    g_byte_array_append (mutation->column,(guint*) "flow:src_ip", 11);
+//    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+//    g_ptr_array_add (mutations, mutation);
+//    c++;
+//
+//    // dst_ip  c=2
+//    sprintf(text[c], "%ld", flow->dst_ip);
+//    mutation = g_object_new (TYPE_MUTATION, NULL);
+//    mutation->column = g_byte_array_new ();
+//    mutation->value  = g_byte_array_new ();
+//    g_byte_array_append (mutation->column,(guint*) "flow:dst_ip", 11);
+//    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+//    g_ptr_array_add (mutations, mutation);
+//    c++;
 
-    // upper_name
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:dst_name", 13);
-    g_byte_array_append (mutation->value ,(guint**) flow->dst_name,  strlen(flow->dst_name));
-    g_ptr_array_add (mutations, mutation);
-
-    // lower_port
-    sprintf(text[0], "%d", ntohs(flow->src_port)) ;
+    // src_port  c=xx
+    sprintf(text[c], "%ld", ntohs(flow->src_port));
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
     g_byte_array_append (mutation->column,(guint*) "flow:src_port", 13);
-    g_byte_array_append (mutation->value ,(guint**) text[0],  strlen(text[0]));
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
+    c++;
 
-    // upper_port
-    sprintf(text[1], "%d", ntohs(flow->dst_port)) ;
+    // dst_port  c=4
+    sprintf(text[c], "%ld", ntohs(flow->dst_port));
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
     g_byte_array_append (mutation->column,(guint*) "flow:dst_port", 13);
-    g_byte_array_append (mutation->value ,(guint**) text[1],  strlen(text[1]));
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
+    c++;
 
-    // protocol
-    char * proto = ipProto2Name(flow->protocol);
+    // protocol  c=5
+    text[c]=ipProto2Name(flow->protocol);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
     g_byte_array_append (mutation->column,(guint*) "flow:protocol", 13);
-    g_byte_array_append (mutation->value ,(guint*) proto,  strlen(proto));
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
+    c++;
 
-    // vlan_id
-    sprintf(text[2], "%d", flow->vlan_id);
+    // bidirectional  c=6
+    sprintf(text[c], "%ld", flow->bidirectional);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:vlan_id", 12);
-    g_byte_array_append (mutation->value ,(guint**) text[2], strlen(text[2]));
+    g_byte_array_append (mutation->column,(guint*) "flow:bidirectional", 18);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
+    c++;
 
-    // last_seen
-    sprintf(text[3], "%ld", flow->last_seen);
+    // src_name
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:last_seen", 14);
-    g_byte_array_append (mutation->value ,(guint**) text[3], strlen(text[3]));
+    g_byte_array_append (mutation->column,(guint*)  "flow:src_name", 13);
+    g_byte_array_append (mutation->value ,(guint**) flow->src_name,  strlen(flow->src_name));
     g_ptr_array_add (mutations, mutation);
 
-    // bytes
-    sprintf(text[4], "%ld", flow->bytes);
+    // dst_name
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*)  "flow:dst_name", 13);
+    g_byte_array_append (mutation->value ,(guint**) flow->dst_name,  strlen(flow->dst_name));
+    g_ptr_array_add (mutations, mutation);
+
+    // bytes  c=7
+    sprintf(text[c], "%ld", flow->bytes);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
     g_byte_array_append (mutation->column,(guint*) "flow:bytes", 10);
-    g_byte_array_append (mutation->value ,(guint**) text[4], strlen(text[4]));
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
+    c++;
 
-    // packets
-    sprintf(text[5], "%d", flow->packets);
+    // packets  c=8
+    sprintf(text[c], "%d", flow->packets);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
     g_byte_array_append (mutation->column,(guint*) "flow:packets", 12);
-    g_byte_array_append (mutation->value ,(guint**) text[5], strlen(text[5]));
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
+    c++;
 
-    // flow_duration
-    sprintf(text[6], "%ld", flow->flow_duration);
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:flow_duration", 18);
-    g_byte_array_append (mutation->value ,(guint**) text[6], strlen(text[6]));
-    g_ptr_array_add (mutations, mutation);
-
-    // first_seen
-    sprintf(text[7], "%ld", flow->first_seen);
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:first_seen", 15);
-    g_byte_array_append (mutation->value ,(guint**) text[7], strlen(text[7]));
-    g_ptr_array_add (mutations, mutation);
-
-    // max_packet_size
-    sprintf(text[8], "%d", flow->max_packet_size);
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:max_packet_size", 20);
-    g_byte_array_append (mutation->value ,(guint**) text[8], strlen(text[8]));
-    g_ptr_array_add (mutations, mutation);
-
-    // min_packet_size
-    sprintf(text[9], "%d", flow->min_packet_size);
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:min_packet_size", 20);
-    g_byte_array_append (mutation->value ,(guint**) text[9], strlen(text[9]));
-    g_ptr_array_add (mutations, mutation);
-
-    // avg_packet_size
-    sprintf(text[10], "%d", flow->avg_packet_size);
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:avg_packet_size", 20);
-    g_byte_array_append (mutation->value ,(guint**) text[10], strlen(text[10]));
-    g_ptr_array_add (mutations, mutation);
-
-    // payload_bytes
-    sprintf(text[11], "%ld", flow->payload_bytes);
+    // payload_bytes  c=9
+    sprintf(text[c], "%ld", flow->payload_bytes);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
     g_byte_array_append (mutation->column,(guint*) "flow:payload_bytes", 18);
-    g_byte_array_append (mutation->value ,(guint**) text[11], strlen(text[11]));
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
+    c++;
 
-    // payload_first_size
-    sprintf(text[12], "%d", flow->payload_first_size);
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:payload_first_size", 23);
-    g_byte_array_append (mutation->value ,(guint**) text[12], strlen(text[12]));
-    g_ptr_array_add (mutations, mutation);
-
-    // payload_avg_size
-    sprintf(text[13], "%d", flow->payload_avg_size);
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:payload_avg_size", 21);
-    g_byte_array_append (mutation->value ,(guint**) text[13], strlen(text[13]));
-    g_ptr_array_add (mutations, mutation);
-
-    // payload_min_size
-    sprintf(text[14], "%d", flow->payload_min_size);
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:payload_min_size", 21);
-    g_byte_array_append (mutation->value ,(guint**) text[14], strlen(text[14]));
-    g_ptr_array_add (mutations, mutation);
-
-    // payload_max_size
-    sprintf(text[15], "%d", flow->payload_max_size);
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:payload_max_size", 21);
-    g_byte_array_append (mutation->value ,(guint**) text[15], strlen(text[15]));
-    g_ptr_array_add (mutations, mutation);
-
-    // packets_without_payload
-    sprintf(text[16], "%d", flow->packets_without_payload);
+    // packets_without_payload  c=10
+    sprintf(text[c], "%d", flow->packets_without_payload);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
     g_byte_array_append (mutation->column,(guint*) "flow:packets_without_payload", 28);
-    g_byte_array_append (mutation->value ,(guint**) text[16], strlen(text[16]));
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // payload_bytes_first  c=11
+    sprintf(text[c], "%d", flow->payload_bytes_first);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:payload_bytes_first", 24);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // flow_duration  c=12
+    sprintf(text[c], "%ld", flow->flow_duration);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:flow_duration", 18);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_pay_bytes  c=13
+    sprintf(text[c], "%ld", flow->src2dst_pay_bytes);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_pay_bytes", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_pay_bytes  c=14
+    sprintf(text[c], "%ld", flow->dst2src_pay_bytes);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_pay_bytes", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_header_bytes  c=15
+    sprintf(text[c], "%ld", flow->src2dst_header_bytes);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_header_bytes", 25);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_header_bytes  c=16
+    sprintf(text[c], "%ld", flow->dst2src_header_bytes);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_header_bytes", 25);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_packets  c=17
+    sprintf(text[c], "%d", flow->src2dst_packets);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_packets", 20);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_packets  c=18
+    sprintf(text[c], "%d", flow->dst2src_packets);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_packets", 20);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_inter_time_avg  c=19
+    sprintf(text[c], "%ld", flow->src2dst_inter_time_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_inter_time_avg", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_inter_time_min  c=20
+    sprintf(text[c], "%ld", flow->src2dst_inter_time_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_inter_time_min", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_inter_time_max  c=21
+    sprintf(text[c], "%ld", flow->src2dst_inter_time_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_inter_time_max", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_inter_time_std  c=22
+    sprintf(text[c], "%ld", flow->src2dst_inter_time_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_inter_time_std", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_inter_time_avg  c=23
+    sprintf(text[c], "%ld", flow->dst2src_inter_time_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_inter_time_avg", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_inter_time_min  c=24
+    sprintf(text[c], "%ld", flow->dst2src_inter_time_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_inter_time_min", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_inter_time_max  c=25
+    sprintf(text[c], "%ld", flow->dst2src_inter_time_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_inter_time_max", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_inter_time_std  c=26
+    sprintf(text[c], "%ld", flow->dst2src_inter_time_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_inter_time_std", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_pay_bytes_avg  c=27
+    sprintf(text[c], "%ld", flow->src2dst_pay_bytes_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_pay_bytes_avg", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_pay_bytes_min  c=28
+    sprintf(text[c], "%ld", flow->src2dst_pay_bytes_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_pay_bytes_min", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_pay_bytes_max  c=29
+    sprintf(text[c], "%ld", flow->src2dst_pay_bytes_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_pay_bytes_max", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_pay_bytes_std  c=30
+    sprintf(text[c], "%ld", flow->src2dst_pay_bytes_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_pay_bytes_std", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_pay_bytes_avg  c=31
+    sprintf(text[c], "%ld", flow->dst2src_pay_bytes_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_pay_bytes_avg", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_pay_bytes_min  c=32
+    sprintf(text[c], "%ld", flow->dst2src_pay_bytes_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_pay_bytes_min", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_pay_bytes_max  c=33
+    sprintf(text[c], "%ld", flow->dst2src_pay_bytes_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_pay_bytes_max", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_pay_bytes_std  c=34
+    sprintf(text[c], "%ld", flow->dst2src_pay_bytes_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_pay_bytes_std", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_pay_bytes_rate  c=35
+    sprintf(text[c], "%ld", flow->dst2src_pay_bytes_rate);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_pay_bytes_rate", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_pay_bytes_rate  c=36
+    sprintf(text[c], "%ld", flow->src2dst_pay_bytes_rate);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_pay_bytes_rate", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_packets_rate  c=37
+    sprintf(text[c], "%ld", flow->dst2src_packets_rate);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_packets_rate", 25);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_packets_rate  c=38
+    sprintf(text[c], "%ld", flow->src2dst_packets_rate);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_packets_rate", 25);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // inter_time_avg  c=39
+    sprintf(text[c], "%ld", flow->inter_time_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:inter_time_avg", 19);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // inter_time_min  c=40
+    sprintf(text[c], "%ld", flow->inter_time_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:inter_time_min", 19);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // inter_time_max  c=41
+    sprintf(text[c], "%ld", flow->inter_time_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:inter_time_max", 19);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // inter_time_std  c=42
+    sprintf(text[c], "%ld", flow->inter_time_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:inter_time_std", 19);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // payload_bytes_avg  c=43
+    sprintf(text[c], "%ld", flow->payload_bytes_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:payload_bytes_avg", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // payload_bytes_std  c=44
+    sprintf(text[c], "%ld", flow->payload_bytes_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:payload_bytes_std", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // payload_bytes_min  c=45
+    sprintf(text[c], "%ld", flow->payload_bytes_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:payload_bytes_min", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // payload_bytes_max  c=46
+    sprintf(text[c], "%ld", flow->payload_bytes_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:payload_bytes_max", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_header_bytes_avg  c=47
+    sprintf(text[c], "%ld", flow->src2dst_header_bytes_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_header_bytes_avg", 29);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_header_bytes_min  c=48
+    sprintf(text[c], "%ld", flow->src2dst_header_bytes_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_header_bytes_min", 29);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_header_bytes_max  c=49
+    sprintf(text[c], "%ld", flow->src2dst_header_bytes_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_header_bytes_max", 29);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // src2dst_header_bytes_std  c=50
+    sprintf(text[c], "%ld", flow->src2dst_header_bytes_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:src2dst_header_bytes_std", 29);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_header_bytes_avg  c=51
+    sprintf(text[c], "%ld", flow->dst2src_header_bytes_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_header_bytes_avg", 29);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_header_bytes_min  c=52
+    sprintf(text[c], "%ld", flow->dst2src_header_bytes_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_header_bytes_min", 29);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_header_bytes_max  c=53
+    sprintf(text[c], "%ld", flow->dst2src_header_bytes_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_header_bytes_max", 29);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // dst2src_header_bytes_std  c=54
+    sprintf(text[c], "%ld", flow->dst2src_header_bytes_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dst2src_header_bytes_std", 29);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // packets_syn  c=55
+    sprintf(text[c], "%d", flow->packets_syn);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:packets_syn", 16);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // packets_ack  c=56
+    sprintf(text[c], "%d", flow->packets_ack);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:packets_ack", 16);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // packets_fin  c=57
+    sprintf(text[c], "%d", flow->packets_fin);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:packets_fin", 16);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // packets_rst  c=58
+    sprintf(text[c], "%d", flow->packets_rst);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:packets_rst", 16);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // packets_psh  c=59
+    sprintf(text[c], "%d", flow->packets_psh);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:packets_psh", 16);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // packets_urg  c=60
+    sprintf(text[c], "%d", flow->packets_urg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:packets_urg", 16);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // tcp_retransmissions  c=61
+    sprintf(text[c], "%d", flow->tcp_retransmissions);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:tcp_retransmissions", 24);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // payload_size_variation  c=62
+    sprintf(text[c], "%d", flow->payload_size_variation);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:payload_size_variation", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // window_scaling_variation  c=64
+    sprintf(text[c], "%d", flow->window_scaling_variation);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:window_scaling_variation", 29);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_number_of_contacts  c=66
+    sprintf(text[c], "%d", flow->C_number_of_contacts);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_number_of_contacts", 25);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_pay_bytes_avg  c=67
+    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_pay_bytes_avg", 28);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_pay_bytes_min  c=68
+    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_pay_bytes_min", 28);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_pay_bytes_max  c=69
+    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_pay_bytes_max", 28);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_pay_bytes_std  c=70
+    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_pay_bytes_std", 28);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_header_bytes_avg  c=71
+    sprintf(text[c], "%ld", flow->C_src2dst_header_bytes_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_header_bytes_avg", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_header_bytes_min  c=72
+    sprintf(text[c], "%ld", flow->C_src2dst_header_bytes_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_header_bytes_min", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_header_bytes_max  c=73
+    sprintf(text[c], "%ld", flow->C_src2dst_header_bytes_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_header_bytes_max", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_header_bytes_std  c=74
+    sprintf(text[c], "%ld", flow->C_src2dst_header_bytes_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_header_bytes_std", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_packets_avg  c=75
+    sprintf(text[c], "%ld", flow->C_src2dst_packets_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_packets_avg", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_packets_min  c=76
+    sprintf(text[c], "%ld", flow->C_src2dst_packets_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_packets_min", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_packets_max  c=77
+    sprintf(text[c], "%ld", flow->C_src2dst_packets_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_packets_max", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_packets_std  c=78
+    sprintf(text[c], "%ld", flow->C_src2dst_packets_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_packets_std", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_pay_bytes_avg  c=79
+    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_pay_bytes_avg", 28);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_pay_bytes_min  c=80
+    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_pay_bytes_min", 28);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_pay_bytes_max  c=81
+    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_pay_bytes_max", 28);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_pay_bytes_std  c=82
+    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_pay_bytes_std", 28);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_header_bytes_avg  c=83
+    sprintf(text[c], "%ld", flow->C_dst2src_header_bytes_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_header_bytes_avg", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_header_bytes_min  c=84
+    sprintf(text[c], "%ld", flow->C_dst2src_header_bytes_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_header_bytes_min", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_header_bytes_max  c=85
+    sprintf(text[c], "%ld", flow->C_dst2src_header_bytes_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_header_bytes_max", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_header_bytes_std  c=86
+    sprintf(text[c], "%ld", flow->C_dst2src_header_bytes_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_header_bytes_std", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_packets_avg  c=87
+    sprintf(text[c], "%ld", flow->C_dst2src_packets_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_packets_avg", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_packets_min  c=88
+    sprintf(text[c], "%ld", flow->C_dst2src_packets_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_packets_min", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_packets_max  c=89
+    sprintf(text[c], "%ld", flow->C_dst2src_packets_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_packets_max", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_packets_std  c=90
+    sprintf(text[c], "%ld", flow->C_dst2src_packets_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_packets_std", 26);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_syn_avg  c=91
+    sprintf(text[c], "%ld", flow->C_packets_syn_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_syn_avg", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_syn_min  c=92
+    sprintf(text[c], "%ld", flow->C_packets_syn_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_syn_min", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_syn_max  c=93
+    sprintf(text[c], "%ld", flow->C_packets_syn_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_syn_max", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_syn_std  c=94
+    sprintf(text[c], "%ld", flow->C_packets_syn_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_syn_std", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_ack_avg  c=95
+    sprintf(text[c], "%ld", flow->C_packets_ack_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_ack_avg", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_ack_min  c=96
+    sprintf(text[c], "%ld", flow->C_packets_ack_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_ack_min", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_ack_max  c=97
+    sprintf(text[c], "%ld", flow->C_packets_ack_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_ack_max", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_ack_std  c=98
+    sprintf(text[c], "%ld", flow->C_packets_ack_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_ack_std", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_fin_avg  c=99
+    sprintf(text[c], "%ld", flow->C_packets_fin_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_fin_avg", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_fin_min  c=100
+    sprintf(text[c], "%ld", flow->C_packets_fin_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_fin_min", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_fin_max  c=101
+    sprintf(text[c], "%ld", flow->C_packets_fin_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_fin_max", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_fin_std  c=102
+    sprintf(text[c], "%ld", flow->C_packets_fin_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_fin_std", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_rst_avg  c=103
+    sprintf(text[c], "%ld", flow->C_packets_rst_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_rst_avg", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_rst_min  c=104
+    sprintf(text[c], "%ld", flow->C_packets_rst_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_rst_min", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_rst_max  c=105
+    sprintf(text[c], "%ld", flow->C_packets_rst_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_rst_max", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_rst_std  c=106
+    sprintf(text[c], "%ld", flow->C_packets_rst_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_rst_std", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_psh_avg  c=107
+    sprintf(text[c], "%ld", flow->C_packets_psh_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_psh_avg", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_psh_min  c=108
+    sprintf(text[c], "%ld", flow->C_packets_psh_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_psh_min", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_psh_max  c=109
+    sprintf(text[c], "%ld", flow->C_packets_psh_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_psh_max", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_psh_std  c=110
+    sprintf(text[c], "%ld", flow->C_packets_psh_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_psh_std", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_urg_avg  c=111
+    sprintf(text[c], "%ld", flow->C_packets_urg_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_urg_avg", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_urg_min  c=112
+    sprintf(text[c], "%ld", flow->C_packets_urg_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_urg_min", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_urg_max  c=113
+    sprintf(text[c], "%ld", flow->C_packets_urg_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_urg_max", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_packets_urg_std  c=114
+    sprintf(text[c], "%ld", flow->C_packets_urg_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_packets_urg_std", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_tcp_retransmissions_avg  c=115
+    sprintf(text[c], "%ld", flow->C_tcp_retransmissions_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_tcp_retransmissions_avg", 30);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_tcp_retransmissions_min  c=116
+    sprintf(text[c], "%ld", flow->C_tcp_retransmissions_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_tcp_retransmissions_min", 30);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_tcp_retransmissions_max  c=117
+    sprintf(text[c], "%ld", flow->C_tcp_retransmissions_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_tcp_retransmissions_max", 30);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_tcp_retransmissions_std  c=118
+    sprintf(text[c], "%ld", flow->C_tcp_retransmissions_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_tcp_retransmissions_std", 30);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_pay_bytes_rate_avg  c=119
+    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_rate_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_pay_bytes_rate_avg", 33);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_pay_bytes_rate_min  c=120
+    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_rate_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_pay_bytes_rate_min", 33);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_pay_bytes_rate_max  c=121
+    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_rate_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_pay_bytes_rate_max", 33);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_pay_bytes_rate_std  c=122
+    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_rate_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_pay_bytes_rate_std", 33);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_pay_bytes_rate_avg  c=123
+    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_rate_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_pay_bytes_rate_avg", 33);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_pay_bytes_rate_min  c=124
+    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_rate_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_pay_bytes_rate_min", 33);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_pay_bytes_rate_max  c=125
+    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_rate_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_pay_bytes_rate_max", 33);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_pay_bytes_rate_std  c=126
+    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_rate_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_pay_bytes_rate_std", 33);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_packets_rate_avg  c=127
+    sprintf(text[c], "%ld", flow->C_dst2src_packets_rate_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_packets_rate_avg", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_packets_rate_min  c=128
+    sprintf(text[c], "%ld", flow->C_dst2src_packets_rate_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_packets_rate_min", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_packets_rate_max  c=129
+    sprintf(text[c], "%ld", flow->C_dst2src_packets_rate_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_packets_rate_max", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_dst2src_packets_rate_std  c=130
+    sprintf(text[c], "%ld", flow->C_dst2src_packets_rate_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_dst2src_packets_rate_std", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_packets_rate_avg  c=131
+    sprintf(text[c], "%ld", flow->C_src2dst_packets_rate_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_packets_rate_avg", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_packets_rate_min  c=132
+    sprintf(text[c], "%ld", flow->C_src2dst_packets_rate_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_packets_rate_min", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_packets_rate_max  c=133
+    sprintf(text[c], "%ld", flow->C_src2dst_packets_rate_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_packets_rate_max", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_src2dst_packets_rate_std  c=134
+    sprintf(text[c], "%ld", flow->C_src2dst_packets_rate_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_src2dst_packets_rate_std", 31);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_duration_avg  c=135
+    sprintf(text[c], "%ld", flow->C_duration_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_duration_avg", 19);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_duration_min  c=136
+    sprintf(text[c], "%ld", flow->C_duration_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_duration_min", 19);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_duration_max  c=137
+    sprintf(text[c], "%ld", flow->C_duration_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_duration_max", 19);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_duration_std  c=138
+    sprintf(text[c], "%ld", flow->C_duration_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_duration_std", 19);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_idletime_avg  c=139
+    sprintf(text[c], "%ld", flow->C_idletime_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_idletime_avg", 19);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_idletime_min  c=140
+    sprintf(text[c], "%ld", flow->C_idletime_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_idletime_min", 19);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_idletime_max  c=141
+    sprintf(text[c], "%ld", flow->C_idletime_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_idletime_max", 19);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_idletime_std  c=142
+    sprintf(text[c], "%ld", flow->C_idletime_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_idletime_std", 19);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // flow_use_time  c=143
+    sprintf(text[c], "%ld", flow->flow_use_time);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:flow_use_time", 18);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // flow_idle_time  c=144
+    sprintf(text[c], "%ld", flow->flow_idle_time);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:flow_idle_time", 19);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // response_rel_time  c=145
+    sprintf(text[c], "%d", flow->response_rel_time);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:response_rel_time", 22);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
 
     // detection_completed
-    sprintf(text[17], "%d", flow->detection_completed);
+    sprintf(text[c], "%d", flow->detection_completed);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
     g_byte_array_append (mutation->column,(guint*) "flow:detection_completed", 24);
-    g_byte_array_append (mutation->value ,(guint**) text[17], strlen(text[17]));
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
+    c++;
+
 
     // detected_protocol
     if(flow->detected_protocol.master_protocol && flow->detected_protocol.app_protocol!=NULL && flow->detected_protocol.app_protocol!=0) {
         char buf[64];
 
-        sprintf(text[18], "%u.%u/%s",
+        sprintf(text[c], "%u.%u/%s",
                 flow->detected_protocol.master_protocol, flow->detected_protocol.app_protocol,
                 ndpi_protocol2name(ndpi_info.ndpi_struct,flow->detected_protocol, buf, sizeof(buf)));
     } else if(flow->detected_protocol.master_protocol){
-        sprintf(text[18], "%u/%s",
+        sprintf(text[c], "%u/%s",
                 flow->detected_protocol.master_protocol,
                 ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.master_protocol));
     } else {
-        sprintf(text[18], "%u/%s",
+        sprintf(text[c], "%u/%s",
                 flow->detected_protocol.app_protocol,
                 ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.app_protocol));
     }
@@ -1968,17 +3325,10 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
     g_byte_array_append (mutation->column,(guint*) "flow:detected_protocol", 22);
-    g_byte_array_append (mutation->value ,(guint**) text[18],  strlen(text[18]));
+    g_byte_array_append (mutation->value ,(guint**) text[c],  strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
+    c++;
 
-
-    // host_server_name
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:host_server_name", 21);
-    g_byte_array_append (mutation->value ,(guint**) flow->host_server_name,  strlen(flow->host_server_name));
-    g_ptr_array_add (mutations, mutation);
 
     // detected_os
     mutation = g_object_new (TYPE_MUTATION, NULL);
@@ -1996,12 +3346,19 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     {
         char itime[10];
         char psize[10];
+        char hsize[10];
+        char direction[10];
         char itimename[25];
         char psizename[25];
+        char hsizename[25];
+        char directionname[25];
         sprintf(itime, "%d", flow->inter_time[i]);
-        sprintf(psize, "%d", flow->packet_size[i]);
+        sprintf(psize, "%d", flow->packet_pay_size[i]);
+        sprintf(hsize, "%d", flow->packet_header_size[i]);
         sprintf(itimename, "flow:inter_time-%d", i);
         sprintf(psizename, "flow:packet_size-%d", i);
+        sprintf(hsizename, "flow:packet_header-%d", i);
+        sprintf(directionname, "flow:packet_direction-%d", i);
 
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
@@ -2015,6 +3372,20 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint**) psizename, strlen(psizename));
         g_byte_array_append (mutation->value ,(guint**) psize,  strlen(psize));
+        g_ptr_array_add (mutations, mutation);
+
+        mutation = g_object_new (TYPE_MUTATION, NULL);
+        mutation->column = g_byte_array_new ();
+        mutation->value  = g_byte_array_new ();
+        g_byte_array_append (mutation->column,(guint**) hsizename, strlen(hsizename));
+        g_byte_array_append (mutation->value ,(guint**) hsize,  strlen(hsize));
+        g_ptr_array_add (mutations, mutation);
+
+        mutation = g_object_new (TYPE_MUTATION, NULL);
+        mutation->column = g_byte_array_new ();
+        mutation->value  = g_byte_array_new ();
+        g_byte_array_append (mutation->column,(guint**) directionname, strlen(directionname));
+        g_byte_array_append (mutation->value ,(guint**) direction,  strlen(direction));
         g_ptr_array_add (mutations, mutation);
     }
 
@@ -2087,20 +3458,6 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
 
     }
 
-    // avg_inter_time
-    sprintf(text[27], "%d", flow->avg_inter_time);
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:avg_inter_time", 19);
-    g_byte_array_append (mutation->value ,(guint**) text[27], strlen(text[27]));
-    g_ptr_array_add (mutations, mutation);
-
-    // DNS stuff
-    //    struct {
-    //      u_int8_t num_queries, num_answers, reply_code;
-    //      u_int16_t query_type, query_class, rsp_type;
-    //    } dns;
 
 
     if(flow->protocol == IPPROTO_UDP && flow->detected_protocol.master_protocol == NDPI_PROTOCOL_DNS ) {
@@ -2231,12 +3588,6 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
         }
     }
 
-
-    /* TODO: Gen contacts statistics
-       u_int64_t C_src2dst_bytes_avg, C_src2dst_bytes_std,   C_dst2src_bytes_avg, C_dst2src_bytes_std;
-       u_int32_t C_src2dst_packets_avg,C_src2dst_packets_std, C_dst2src_packets_avg,C_dst2src_packets_std;
-       u_int64_t C_relative_time_avg, C_relative_time_std, C_duration_avg, C_duration_std;
-     */
 
 }
 
