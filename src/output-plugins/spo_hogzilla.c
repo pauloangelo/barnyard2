@@ -1341,8 +1341,9 @@ static u_int64_t sum_series(u_int64_t *series,int series_size){
 
 static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
 
-    int series_size,i;
+	raise(SIGINT);
 
+    int series_size,i;
 
     flow->flow_duration=flow->last_seen-flow->first_seen;
 
@@ -1439,6 +1440,7 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
     flow->src2dst_pay_bytes_rate = flow->src2dst_pay_bytes/flow->flow_duration;
     flow->dst2src_packets_rate = flow->dst2src_packets/flow->flow_duration;
     flow->src2dst_packets_rate = flow->src2dst_packets/flow->flow_duration;
+    raise(SIGINT);
 
 }
 /* ***************************************************** */
@@ -1782,6 +1784,8 @@ struct HogzillaHBase *connectHBase() {
 
 
 void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
+
+	raise(SIGINT);
 
     int c=0;
     char text[150][50];
@@ -3593,7 +3597,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
         }
     }
 
-
+    raise(SIGINT);
 }
 
 
