@@ -1434,7 +1434,8 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
 
     avg_min_max_std(flow->inter_time, series_size, NULL, 0, &flow->inter_time_avg,
                      &flow->inter_time_min, &flow->inter_time_max, &flow->inter_time_std);
-    avg_min_max_std(flow->payload_bytes, series_size, NULL, 0, &flow->payload_bytes_avg,
+
+    avg_min_max_std(flow->packet_pay_size, series_size, NULL, 0, &flow->payload_bytes_avg,
                      &flow->payload_bytes_min, &flow->payload_bytes_max, &flow->payload_bytes_std);
 
 
