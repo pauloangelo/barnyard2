@@ -1109,6 +1109,11 @@ static struct ndpi_flow_info *get_ndpi_flow_info6(
 /* ***************************************************** */
 void variation_comput(u_int32_t *expected,u_int32_t * variationSum, u_int32_t currentSize){
 	if(currentSize!=NULL){
+		if(*expected==0&&currentSize!=0)
+			*expected=currentSize;
+		else if(*expected==0)
+			*expected=1;
+
 		*variationSum+= (((currentSize-(*expected))*(currentSize-(*expected)))*100)/(*expected);
 		*expected = (9*(*expected)+currentSize)/10;
 	}
