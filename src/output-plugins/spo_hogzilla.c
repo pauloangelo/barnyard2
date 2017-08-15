@@ -1660,6 +1660,8 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
     struct ndpi_proto nproto = { NDPI_PROTOCOL_UNKNOWN, NDPI_PROTOCOL_UNKNOWN };
     struct ndpi_packet_struct *packet;
 
+    raise(SIGINT);
+
     if(iph)
       flow = get_ndpi_flow_info(IPVERSION, vlan_id, iph, NULL,
                     ip_offset, ipsize,
@@ -1717,7 +1719,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
             process_ndpi_collected_info(flow);
         }
     }
-
+    raise(SIGINT);
     updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
     // After FIN , save into HBase and remove from tree
@@ -1733,7 +1735,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
     if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW) {
         HogzillaSaveFlow(flow); /* save into  HBase */
     }
-
+    raise(SIGINT);
     scan_idle_flows();
 
     return flow;
