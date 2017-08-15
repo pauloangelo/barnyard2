@@ -669,7 +669,6 @@ static void free_ndpi_flow(struct ndpi_flow_info *flow) {
 }
 /* ***************************************************** */
 void cleanMutation(gpointer data, gpointer b) {
-    // raise(SIGINT);
     Mutation *mutation = (Mutation *) data;
     g_byte_array_free(mutation->column,TRUE);
     g_byte_array_free(mutation->value,TRUE);
@@ -1342,7 +1341,7 @@ static u_int64_t sum_series(u_int64_t *series,int series_size){
 
 static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
 
-	raise(SIGINT);
+
 
     int series_size,i;
 
@@ -1441,7 +1440,7 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
     flow->src2dst_pay_bytes_rate = flow->src2dst_pay_bytes/flow->flow_duration;
     flow->dst2src_packets_rate = flow->dst2src_packets/flow->flow_duration;
     flow->src2dst_packets_rate = flow->src2dst_packets/flow->flow_duration;
-    raise(SIGINT);
+
 
 }
 /* ***************************************************** */
@@ -1661,7 +1660,6 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
     struct ndpi_proto nproto = { NDPI_PROTOCOL_UNKNOWN, NDPI_PROTOCOL_UNKNOWN };
     struct ndpi_packet_struct *packet;
 
-    raise(SIGINT);
 
     if(iph)
       flow = get_ndpi_flow_info(IPVERSION, vlan_id, iph, NULL,
@@ -1720,7 +1718,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
             process_ndpi_collected_info(flow);
         }
     }
-    raise(SIGINT);
+
     updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
     // After FIN , save into HBase and remove from tree
@@ -1736,7 +1734,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
     if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW) {
         HogzillaSaveFlow(flow); /* save into  HBase */
     }
-    raise(SIGINT);
+
     scan_idle_flows();
 
     return flow;
@@ -1788,7 +1786,7 @@ struct HogzillaHBase *connectHBase() {
 
 void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
 
-	raise(SIGINT);
+
 
     int c=0;
     char text[150][50];
@@ -3600,7 +3598,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
         }
     }
 
-    raise(SIGINT);
+
 }
 
 
