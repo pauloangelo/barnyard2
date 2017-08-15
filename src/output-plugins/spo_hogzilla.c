@@ -348,8 +348,6 @@ static HogzillaData *ParseHogzillaArgs(char *args) {
     return data;
 }
 
-
-
 /*
  * Function: SpoHogzillaCleanExitFunc()
  *
@@ -410,70 +408,68 @@ typedef struct ndpi_flow_info {
     char src_name[32], dst_name[32];
     u_int64_t bytes;
     u_int32_t packets;
+    u_int64_t payload_bytes;
+    u_int32_t packets_without_payload;
+    u_int32_t payload_bytes_first;
 
     /*
-     * packets statistics
+     * more packets statistics
      */
     u_int64_t flow_duration;
-    u_int64_t src2dst_pay_bytes, dst2src_pay_bytes;
-    u_int32_t src2dst_packets, dst2src_packets;
-    /* we are using just payload sizes */
-    //u_int32_t max_packet_size;
-    //u_int32_t min_packet_size;
-    //u_int32_t avg_packet_size;
-    //u_int32_t std_packet_size;
+    u_int64_t src2dst_pay_bytes;
+    u_int64_t dst2src_pay_bytes;
+    u_int64_t src2dst_header_bytes;
+    u_int64_t dst2src_header_bytes;
+    u_int32_t src2dst_packets;
+    u_int32_t dst2src_packets;
+
     u_int64_t arrival_time[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
     u_int8_t  direction[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
     u_int32_t inter_time[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
     u_int64_t packet_pay_size[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
     u_int64_t packet_header_size[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
 
-    u_int64_t inter_time_avg;
-    u_int64_t inter_time_min;
-    u_int64_t inter_time_max;
-    u_int64_t inter_time_std;
-
     u_int64_t src2dst_inter_time_avg;
     u_int64_t src2dst_inter_time_min;
     u_int64_t src2dst_inter_time_max;
     u_int64_t src2dst_inter_time_std;
-
     u_int64_t dst2src_inter_time_avg;
     u_int64_t dst2src_inter_time_min;
     u_int64_t dst2src_inter_time_max;
     u_int64_t dst2src_inter_time_std;
 
-    u_int64_t payload_bytes;
+    u_int32_t src2dst_pay_bytes_avg;
+    u_int32_t src2dst_pay_bytes_min;
+    u_int32_t src2dst_pay_bytes_max;
+    u_int32_t src2dst_pay_bytes_std;
+    u_int32_t dst2src_pay_bytes_avg;
+    u_int32_t dst2src_pay_bytes_min;
+    u_int32_t dst2src_pay_bytes_max;
+    u_int32_t dst2src_pay_bytes_std;
+
+    u_int32_t dst2src_pay_bytes_rate; /*bytes per second */
+    u_int32_t src2dst_pay_bytes_rate; /*bytes per second */
+    u_int32_t dst2src_packets_rate;   /*packets per second */
+    u_int32_t src2dst_packets_rate;   /*packets per second */
+
+    u_int64_t inter_time_avg;
+    u_int64_t inter_time_min;
+    u_int64_t inter_time_max;
+    u_int64_t inter_time_std;
+
     u_int32_t payload_bytes_avg;
     u_int32_t payload_bytes_std;
     u_int32_t payload_bytes_min;
     u_int32_t payload_bytes_max;
-    u_int32_t payload_bytes_first;
-    u_int32_t packets_without_payload;
 
-    src2dst_pay_bytes_avg
-    src2dst_pay_bytes_min
-    src2dst_pay_bytes_max
-    src2dst_pay_bytes_std
-    dst2src_pay_bytes_avg
-    dst2src_pay_bytes_min
-    dst2src_pay_bytes_max
-    dst2src_pay_bytes_std
-
-    dst2src_pay_bytes_rate /*bytes per second */
-    src2dst_pay_bytes_rate /*bytes per second */
-    dst2src_packets_rate /*packets per second */
-    src2dst_packets_rate /*packets per second */
-
-    src2dst_header_bytes_avg
-    src2dst_header_bytes_min
-    src2dst_header_bytes_max
-    src2dst_header_bytes_std
-    dst2src_header_bytes_avg
-    dst2src_header_bytes_min
-    dst2src_header_bytes_max
-    dst2src_header_bytes_std
-
+    u_int32_t src2dst_header_bytes_avg;
+    u_int32_t src2dst_header_bytes_min;
+    u_int32_t src2dst_header_bytes_max;
+    u_int32_t src2dst_header_bytes_std;
+    u_int32_t dst2src_header_bytes_avg;
+    u_int32_t dst2src_header_bytes_min;
+    u_int32_t dst2src_header_bytes_max;
+    u_int32_t dst2src_header_bytes_std;
 
     /* TCP exclusive features (counting vars) */
     u_int32_t packets_syn;
@@ -485,81 +481,114 @@ typedef struct ndpi_flow_info {
     u_int32_t tcp_retransmissions;
 
     /* variation estimation */
-    u_int32_t packet_size_variation;
-    u_int32_t packet_size_variation_expected;
+    u_int32_t payload_size_variation;
+    u_int32_t payload_size_variation_expected;
     u_int32_t window_scaling_variation;
     u_int32_t window_scaling_variation_expected;
-
 
     /*
      * Contacts during connections
      */
     u_int32_t C_number_of_contacts;
-    u_int64_t C_src2dst_pay_bytes[MAX_CONTACTS],   C_dst2src_pay_bytes[MAX_CONTACTS];
-    u_int64_t C_src2dst_header_bytes[MAX_CONTACTS],   C_dst2src_header_bytes[MAX_CONTACTS];
-    u_int32_t C_src2dst_packets[MAX_CONTACTS], C_dst2src_packets[MAX_CONTACTS];
-    C_dst2src_pay_bytes_rate[MAX_CONTACTS]
-    C_src2dst_pay_bytes_rate[MAX_CONTACTS]
-    C_dst2src_packets_rate[MAX_CONTACTS]
-    C_src2dst_packets_rate[MAX_CONTACTS]
-    u_int64_t C_start_time[MAX_CONTACTS],      C_duration[MAX_CONTACTS];
-    u_int32_t C_packets_syn[MAX_CONTACTS];
-    u_int32_t C_packets_ack[MAX_CONTACTS];
-    u_int32_t C_packets_fin[MAX_CONTACTS];
-    u_int32_t C_packets_rst[MAX_CONTACTS];
-    u_int32_t C_packets_psh[MAX_CONTACTS];
-    u_int32_t C_packets_urg[MAX_CONTACTS];
-    u_int32_t C_tcp_retransmissions[MAX_CONTACTS];
+    u_int64_t C_src2dst_pay_bytes[MAX_CONTACTS];
+    u_int64_t C_dst2src_pay_bytes[MAX_CONTACTS];
+    u_int64_t C_src2dst_header_bytes[MAX_CONTACTS];
+    u_int64_t C_dst2src_header_bytes[MAX_CONTACTS];
+    u_int64_t C_src2dst_packets[MAX_CONTACTS];
+    u_int64_t C_dst2src_packets[MAX_CONTACTS];
+    u_int64_t C_dst2src_pay_bytes_rate[MAX_CONTACTS];
+    u_int64_t C_src2dst_pay_bytes_rate[MAX_CONTACTS];
+    u_int64_t C_dst2src_packets_rate[MAX_CONTACTS];
+    u_int64_t C_src2dst_packets_rate[MAX_CONTACTS];
+    u_int64_t C_start_time[MAX_CONTACTS];
+    u_int64_t C_duration[MAX_CONTACTS];
+    u_int64_t C_packets_syn[MAX_CONTACTS];
+    u_int64_t C_packets_ack[MAX_CONTACTS];
+    u_int64_t C_packets_fin[MAX_CONTACTS];
+    u_int64_t C_packets_rst[MAX_CONTACTS];
+    u_int64_t C_packets_psh[MAX_CONTACTS];
+    u_int64_t C_packets_urg[MAX_CONTACTS];
+    u_int64_t C_tcp_retransmissions[MAX_CONTACTS];
 
-    C_src2dst_pay_bytes_avg
-    C_src2dst_pay_bytes_min
-    C_src2dst_pay_bytes_max
-    C_src2dst_pay_bytes_std
-    C_src2dst_header_bytes_avg
-    C_src2dst_header_bytes_min
-    C_src2dst_header_bytes_max
-    C_src2dst_header_bytes_std
-    C_src2dst_packets_avg
-    C_src2dst_packets_min
-    C_src2dst_packets_max
-    C_src2dst_packets_std
-    C_dst2src_pay_bytes_avg
-    C_dst2src_pay_bytes_min
-    C_dst2src_pay_bytes_max
-    C_dst2src_pay_bytes_std
-    C_dst2src_header_bytes_avg
-    C_dst2src_header_bytes_min
-    C_dst2src_header_bytes_max
-    C_dst2src_header_bytes_std
-    C_dst2src_packets_avg
-    C_dst2src_packets_min
-    C_dst2src_packets_max
-    C_dst2src_packets_std
-    //avg, min, max e std pra todos abaixo
-    C_packets_syn
-    C_packets_ack
-    C_packets_fin
-    C_packets_rst
-    C_packets_psh
-    C_packets_urg
-    C_tcp_retransmissions
-    C_dst2src_pay_bytes_rate
-    C_src2dst_pay_bytes_rate
-    C_dst2src_packets_rate
-    C_src2dst_packets_rate
+    u_int64_t C_src2dst_pay_bytes_avg;
+    u_int64_t C_src2dst_pay_bytes_min;
+    u_int64_t C_src2dst_pay_bytes_max;
+    u_int64_t C_src2dst_pay_bytes_std;
+    u_int64_t C_src2dst_header_bytes_avg;
+    u_int64_t C_src2dst_header_bytes_min;
+    u_int64_t C_src2dst_header_bytes_max;
+    u_int64_t C_src2dst_header_bytes_std;
+    u_int64_t C_src2dst_packets_avg;
+    u_int64_t C_src2dst_packets_min;
+    u_int64_t C_src2dst_packets_max;
+    u_int64_t C_src2dst_packets_std;
+    u_int64_t C_dst2src_pay_bytes_avg;
+    u_int64_t C_dst2src_pay_bytes_min;
+    u_int64_t C_dst2src_pay_bytes_max;
+    u_int64_t C_dst2src_pay_bytes_std;
+    u_int64_t C_dst2src_header_bytes_avg;
+    u_int64_t C_dst2src_header_bytes_min;
+    u_int64_t C_dst2src_header_bytes_max;
+    u_int64_t C_dst2src_header_bytes_std;
+    u_int64_t C_dst2src_packets_avg;
+    u_int64_t C_dst2src_packets_min;
+    u_int64_t C_dst2src_packets_max;
+    u_int64_t C_dst2src_packets_std;
+    u_int64_t C_packets_syn_avg;
+    u_int64_t C_packets_syn_min;
+    u_int64_t C_packets_syn_max;
+    u_int64_t C_packets_syn_std;
+    u_int64_t C_packets_ack_avg;
+    u_int64_t C_packets_ack_min;
+    u_int64_t C_packets_ack_max;
+    u_int64_t C_packets_ack_std;
+    u_int64_t C_packets_fin_avg;
+    u_int64_t C_packets_fin_min;
+    u_int64_t C_packets_fin_max;
+    u_int64_t C_packets_fin_std;
+    u_int64_t C_packets_rst_avg;
+    u_int64_t C_packets_rst_min;
+    u_int64_t C_packets_rst_max;
+    u_int64_t C_packets_rst_std;
+    u_int64_t C_packets_psh_avg;
+    u_int64_t C_packets_psh_min;
+    u_int64_t C_packets_psh_max;
+    u_int64_t C_packets_psh_std;
+    u_int64_t C_packets_urg_avg;
+    u_int64_t C_packets_urg_min;
+    u_int64_t C_packets_urg_max;
+    u_int64_t C_packets_urg_std;
+    u_int64_t C_tcp_retransmissions_avg;
+    u_int64_t C_tcp_retransmissions_min;
+    u_int64_t C_tcp_retransmissions_max;
+    u_int64_t C_tcp_retransmissions_std;
+    u_int64_t C_dst2src_pay_bytes_rate_avg;
+    u_int64_t C_dst2src_pay_bytes_rate_min;
+    u_int64_t C_dst2src_pay_bytes_rate_max;
+    u_int64_t C_dst2src_pay_bytes_rate_std;
+    u_int64_t C_src2dst_pay_bytes_rate_avg;
+    u_int64_t C_src2dst_pay_bytes_rate_min;
+    u_int64_t C_src2dst_pay_bytes_rate_max;
+    u_int64_t C_src2dst_pay_bytes_rate_std;
+    u_int64_t C_dst2src_packets_rate_avg;
+    u_int64_t C_dst2src_packets_rate_min;
+    u_int64_t C_dst2src_packets_rate_max;
+    u_int64_t C_dst2src_packets_rate_std;
+    u_int64_t C_src2dst_packets_rate_avg;
+    u_int64_t C_src2dst_packets_rate_min;
+    u_int64_t C_src2dst_packets_rate_max;
+    u_int64_t C_src2dst_packets_rate_std;
+    u_int64_t C_duration_avg;
+    u_int64_t C_duration_min;
+    u_int64_t C_duration_max;
+    u_int64_t C_duration_std;
+    u_int64_t C_idletime_avg;
+    u_int64_t C_idletime_min;
+    u_int64_t C_idletime_max;
+    u_int64_t C_idletime_std;
 
-    C_duration_avg
-    C_duration_min
-    C_duration_max
-    C_duration_std
-    C_idletime_avg
-    C_idletime_min
-    C_idletime_max
-    C_idletime_std
-    flow_use_time
-    flow_idle_time
-
-
+    u_int64_t flow_use_time;
+    u_int64_t flow_idle_time;
 
     /*
      * packets statistics
@@ -567,22 +596,7 @@ typedef struct ndpi_flow_info {
     /* Request and responses times for HTTP and DNS */
     u_int32_t response_rel_time; /* delta t between request and response */
 
-
-    /*
-     * mean, min, max, std para
-     * - Payloads no dois sentidos
-     * - bytes nos dois sentidos
-     * - Tempos  de chegada
-     * -
-     *
-     *
-     * - Tempo da conexão
-     * - Tempo idle
-     * - Tempo de contato ativo
-     *
-     */
-
-    /* label information, from misuse IDS */
+   /* label information, from misuse IDS */
     Unified2EventCommon *event;
 
 
@@ -767,10 +781,10 @@ static void printFlow(struct ndpi_flow_info *flow) {
           flow->detected_protocol.app_protocol,
           ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.app_protocol));
 
-    fprintf(out, "[%u pkts/%llu bytes ", flow->src2dst_packets, (long long unsigned int) flow->src2dst_bytes);
+    fprintf(out, "[%u pkts/%llu bytes ", flow->src2dst_packets, (long long unsigned int) flow->src2dst_pay_bytes);
     fprintf(out, "%s %u pkts/%llu bytes]",
         (flow->dst2src_packets > 0) ? "<->" : "->",
-        flow->dst2src_packets, (long long unsigned int) flow->dst2src_bytes);
+        flow->dst2src_packets, (long long unsigned int) flow->dst2src_pay_bytes);
 
     if(flow->host_server_name[0] != '\0') fprintf(out, "[Host: %s]", flow->host_server_name);
     if(flow->info[0] != '\0') fprintf(out, "[%s]", flow->info);
@@ -1259,11 +1273,23 @@ xxx
         if(flow->C_number_of_contacts<= MAX_CONTACTS) {
             /*  statistics for the current contact */
             if(src_to_dst_direction){
-                flow->C_src2dst_bytes[flow->C_number_of_contacts-1]+= rawsize;
+                flow->C_src2dst_pay_bytes[flow->C_number_of_contacts-1]+= ipsize;
                 flow->C_src2dst_packets[flow->C_number_of_contacts-1]++;
+                flow->C_src2dst_header_bytes[flow->C_number_of_contacts-1]+= rawsize - ipsize;
             }else{
-                flow->C_dst2src_bytes[flow->C_number_of_contacts-1]+= rawsize;
+                flow->C_dst2src_pay_bytes[flow->C_number_of_contacts-1]+= ipsize;
                 flow->C_dst2src_packets[flow->C_number_of_contacts-1]++;
+                flow->C_dst2src_header_bytes[flow->C_number_of_contacts-1]+= rawsize - ipsize;
+            }
+
+            if(proto == IPPROTO_TCP){
+                flow->C_packets_syn[flow->C_number_of_contacts-1] += tcph->syn;
+                flow->C_packets_ack[flow->C_number_of_contacts-1] += tcph->ack;
+                flow->C_packets_fin[flow->C_number_of_contacts-1] += tcph->fin;
+                flow->C_packets_rst[flow->C_number_of_contacts-1] += tcph->rst;
+                flow->C_packets_psh[flow->C_number_of_contacts-1] += tcph->psh;
+                flow->C_packets_urg[flow->C_number_of_contacts-1] += tcph->urg;
+                flow->C_tcp_retransmissions[flow->C_number_of_contacts-1] += ndpi_flow->packet.tcp_retransmission;
             }
 
             /* last valid contact */
@@ -1271,6 +1297,37 @@ xxx
         }
     }
 
+
+
+
+}
+/* ***************************************************** */
+static void avg_min_max_std(u_int64_t *series[],int series_size, u_int64_t *avg, u_int64_t *min, u_int64_t *max, u_int64_t *std){
+
+    int i;
+    *min=sizeof(u_int64_t);
+    *max=0;
+    *avg=0;
+    *std=0;
+
+    for(i=0; i<series_size ;i++ ){
+
+        if(*series[i] < *min)
+            *min = *series[i];
+
+        if(*series[i] > *max)
+            *max = *series[i];
+
+        *avg+=*series[i];
+    }
+
+    *avg=*avg/series_size;
+
+    for(i=0; i<series_size ;i++ ){
+        *std = (*avg-*series[i])*(*avg-*series[i]);
+    }
+
+    *std=*std/2;
 }
 /* ***************************************************** */
 
@@ -1294,6 +1351,50 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
            flow->avg_inter_time   = (flow->avg_inter_time*flow->packets  + (time - flow->last_seen))/(flow->packets+1);
            flow->payload_avg_size = (flow->payload_avg_size*flow->packets + ipsize )/(flow->packets+1);
     }
+
+
+    avg_min_max_std(&flow->C_src2dst_pay_bytes,flow->C_number_of_contacts,&flow->C_src2dst_pay_bytes_avg,
+                    &flow->C_src2dst_pay_bytes_min,&flow->C_src2dst_pay_bytes_max,&flow->C_src2dst_pay_bytes_std);
+    avg_min_max_std(&flow->C_src2dst_header_bytes,flow->C_number_of_contacts, &flow->C_src2dst_header_bytes_avg, 
+                    &flow->C_src2dst_header_bytes_min, &flow->C_src2dst_header_bytes_max, &flow->C_src2dst_header_bytes_std);
+    avg_min_max_std(&flow->C_src2dst_packets,flow->C_number_of_contacts, &flow->C_src2dst_packets_avg,
+                    &flow->C_src2dst_packets_min, &flow->C_src2dst_packets_max, &flow->C_src2dst_packets_std);
+    avg_min_max_std(&flow->C_dst2src_pay_bytes,flow->C_number_of_contacts, &flow->C_dst2src_pay_bytes_avg,
+                    &flow->C_dst2src_pay_bytes_min, &flow->C_dst2src_pay_bytes_max, &flow->C_dst2src_pay_bytes_std);
+    avg_min_max_std(&flow->C_dst2src_header_bytes,flow->C_number_of_contacts,&flow->C_dst2src_header_bytes_avg,
+                    &flow->C_dst2src_header_bytes_min, &flow->C_dst2src_header_bytes_max, &flow->C_dst2src_header_bytes_std);
+    avg_min_max_std(&flow->C_dst2src_packets,flow->C_number_of_contacts,&flow->C_dst2src_packets_avg,
+                    &flow->C_dst2src_packets_min, &flow->C_dst2src_packets_max, &flow->C_dst2src_packets_std);
+    avg_min_max_std(&flow->C_packets_syn,flow->C_number_of_contacts, &flow->C_packets_syn_avg,
+                    &flow->C_packets_syn_min, &flow->C_packets_syn_max, &flow->C_packets_syn_std);
+    avg_min_max_std(&flow->C_packets_ack,flow->C_number_of_contacts, &flow->C_packets_ack_avg,
+                    &flow->C_packets_ack_min, &flow->C_packets_ack_max, &flow->C_packets_ack_std);
+    avg_min_max_std(&flow->C_packets_fin,flow->C_number_of_contacts, &flow->C_packets_fin_avg,
+                    &flow->C_packets_fin_min, &flow->C_packets_fin_max, &flow->C_packets_fin_std);
+    avg_min_max_std(&flow->C_packets_rst,flow->C_number_of_contacts, &flow->C_packets_rst_avg,
+                    &flow->C_packets_rst_min, &flow->C_packets_rst_max, &flow->C_packets_rst_std);
+    avg_min_max_std(&flow->C_packets_psh,flow->C_number_of_contacts, &flow->C_packets_psh_avg,
+                    &flow->C_packets_psh_min, &flow->C_packets_psh_max, &flow->C_packets_psh_std);
+    avg_min_max_std(&flow->C_packets_urg,flow->C_number_of_contacts, &flow->C_packets_urg_avg,
+                    &flow->C_packets_urg_min, &flow->C_packets_urg_max, &flow->C_packets_urg_std);
+    avg_min_max_std(&flow->C_tcp_retransmissions,flow->C_number_of_contacts, &flow->C_tcp_retransmissions_avg,
+                    &flow->C_tcp_retransmissions_min, &flow->C_tcp_retransmissions_max, &flow->C_tcp_retransmissions_std);
+    avg_min_max_std(&flow->C_dst2src_pay_bytes_rate,flow->C_number_of_contacts, &flow->C_dst2src_pay_bytes_rate_avg,
+                    &flow->C_dst2src_pay_bytes_rate_min, &flow->C_dst2src_pay_bytes_rate_max, &flow->C_dst2src_pay_bytes_rate_std);
+    avg_min_max_std(&flow->C_src2dst_pay_bytes_rate, flow->C_number_of_contacts, &flow->C_src2dst_pay_bytes_rate_avg,
+                    &flow->C_src2dst_pay_bytes_rate_min, &flow->C_src2dst_pay_bytes_rate_max, &flow->C_src2dst_pay_bytes_rate_std);
+    avg_min_max_std(&flow->C_dst2src_packets_rate, flow->C_number_of_contacts, &flow->C_dst2src_packets_rate_avg,
+                    &flow->C_dst2src_packets_rate_min, &flow->C_dst2src_packets_rate_max, &flow->C_dst2src_packets_rate_std);
+    avg_min_max_std(&flow->C_src2dst_packets_rate, flow->C_number_of_contacts, &flow->C_src2dst_packets_rate_avg,
+                    &flow->C_src2dst_packets_rate_min, &flow->C_src2dst_packets_rate_max, &flow->C_src2dst_packets_rate_std);
+    avg_min_max_std(&flow->C_duration, flow->C_number_of_contacts, &flow->C_duration_avg,
+                    &flow->C_duration_min, &flow->C_duration_max, &flow->C_duration_std);
+    avg_min_max_std(&flow->C_idletime, flow->C_number_of_contacts, &flow->C_idletime_avg,
+                    &flow->C_idletime_min, &flow->C_idletime_max, &flow->C_idletime_std);
+
+    u_int64_t flow_use_time;
+    u_int64_t flow_idle_time;
+
 }
 /* ***************************************************** */
 
@@ -1489,7 +1590,6 @@ void process_ndpi_collected_info(struct ndpi_flow_info *flow) {
         }
     }
 
-    // TODO: Add HTTP related features
 
 }
 /* ***************************************************** */
