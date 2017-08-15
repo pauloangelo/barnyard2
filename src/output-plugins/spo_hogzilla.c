@@ -1438,11 +1438,12 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
     avg_min_max_std(flow->packet_pay_size, series_size, NULL, 0, &flow->payload_bytes_avg,
                      &flow->payload_bytes_min, &flow->payload_bytes_max, &flow->payload_bytes_std);
 
-
-    flow->dst2src_pay_bytes_rate = flow->dst2src_pay_bytes/flow->flow_duration;
-    flow->src2dst_pay_bytes_rate = flow->src2dst_pay_bytes/flow->flow_duration;
-    flow->dst2src_packets_rate = flow->dst2src_packets/flow->flow_duration;
-    flow->src2dst_packets_rate = flow->src2dst_packets/flow->flow_duration;
+    if(flow->flow_duration!=0){
+    	flow->dst2src_pay_bytes_rate = flow->dst2src_pay_bytes/flow->flow_duration;
+    	flow->src2dst_pay_bytes_rate = flow->src2dst_pay_bytes/flow->flow_duration;
+    	flow->dst2src_packets_rate = flow->dst2src_packets/flow->flow_duration;
+    	flow->src2dst_packets_rate = flow->src2dst_packets/flow->flow_duration;
+    }
 
 
 }
