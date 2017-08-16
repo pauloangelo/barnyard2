@@ -1252,8 +1252,7 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
             flow->C_number_of_contacts++;
 
             /* Update last contact features */
-            if(flow->C_number_of_contacts>1){
-                flow->C_duration[flow->C_number_of_contacts-2]=flow->C_last_time-flow->C_start_time[flow->C_number_of_contacts-2];
+            if(flow->C_number_of_contacts>=2){
                 flow->C_idletime[flow->C_number_of_contacts-2]=time - flow->C_last_time;
             }
 
@@ -1282,6 +1281,8 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
                 flow->C_packets_urg[flow->C_number_of_contacts-1] += tcph->urg;
                 flow->C_tcp_retransmissions[flow->C_number_of_contacts-1] += ndpi_flow->packet.tcp_retransmission;
             }
+            /* duration of current contact */
+            flow->C_duration[flow->C_number_of_contacts-1]=time-flow->C_start_time[flow->C_number_of_contacts-1];
 
             /* last valid contact */
             flow->C_last_time = time;
@@ -1308,7 +1309,7 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
     *avg=0;
     *std=0;
 
-    for(i=0; i<series_size && ( filter==NULL || (filter[i]+not)%2 ) ;i++ ){
+    for(i=0; i<series_size && ( filter==NULL || ((filter[i]+not)%2)==1 ) ;i++ ){
 
         if(series[i] < *min)
             *min = series[i];
@@ -1323,7 +1324,7 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
     if(counter!=0)
     	*avg=*avg/counter;
 
-    for(i=0; i<series_size && ( filter==NULL || (filter[i]+not)%2 ) ;i++ ){
+    for(i=0; i<series_size && ( filter==NULL || ((filter[i]+not)%2)==1 ) ;i++ ){
     	*std += (*avg-series[i])*(*avg-series[i]);
     }
 
@@ -1355,6 +1356,15 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
     flow->flow_duration=flow->last_seen-flow->first_seen;
 
     series_size=ndpi_min(flow->C_number_of_contacts,MAX_CONTACTS);
+
+    for(i=0;i<series_size;i++){
+        if(flow->C_duration[i]!=0){
+              flow->C_dst2src_pay_bytes_rate[i] = flow->C_dst2src_pay_bytes[i]/flow->C_duration[i];
+              flow->C_src2dst_pay_bytes_rate[i] = flow->C_src2dst_pay_bytes[i]/flow->C_duration[i];
+              flow->C_dst2src_packets_rate[i]   = flow->C_dst2src_packets[i]/flow->C_duration[i];
+              flow->C_src2dst_packets_rate[i]   = flow->C_src2dst_packets[i]/flow->C_duration[i];
+          }
+    }
 
     avg_min_max_std(flow->C_src2dst_pay_bytes,series_size, NULL, 0,&flow->C_src2dst_pay_bytes_avg,
                     &flow->C_src2dst_pay_bytes_min,&flow->C_src2dst_pay_bytes_max,&flow->C_src2dst_pay_bytes_std);
@@ -1392,11 +1402,11 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
                     &flow->C_src2dst_packets_rate_min, &flow->C_src2dst_packets_rate_max, &flow->C_src2dst_packets_rate_std);
     avg_min_max_std(flow->C_duration, series_size, NULL, 0, &flow->C_duration_avg,
                     &flow->C_duration_min, &flow->C_duration_max, &flow->C_duration_std);
-    avg_min_max_std(flow->C_idletime, series_size, NULL, 0, &flow->C_idletime_avg,
+    avg_min_max_std(flow->C_idletime, series_size-1, NULL, 0, &flow->C_idletime_avg, /* idle between contacts */
                     &flow->C_idletime_min, &flow->C_idletime_max, &flow->C_idletime_std);
 
     flow->flow_use_time=sum_series(flow->C_duration, series_size);
-    flow->flow_idle_time=sum_series(flow->C_idletime, series_size);
+    flow->flow_idle_time=flow->flow_duration-flow->flow_use_time;
 
 
 
@@ -1425,12 +1435,10 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
     	if(flow->direction[i]){
     		inter_time_src2dst[s2dc] = flow->arrival_time[i] - s2dlast;
     		s2dlast=flow->arrival_time[i];
-            printf("Inter-time SRC2DST (%d): %ld\n",s2dc,inter_time_src2dst[s2dc]);
     		s2dc++;
     	}else{
     		inter_time_dst2src[d2sc] = flow->arrival_time[i] - d2slast;
     		d2slast=flow->arrival_time[i];
-            printf("Inter-time DST2SRC (%d): %ld\n",d2sc,inter_time_dst2src[d2sc]);
     		d2sc++;
     	}
     }
