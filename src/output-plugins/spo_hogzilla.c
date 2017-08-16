@@ -1309,15 +1309,16 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
     *avg=0;
     *std=0;
 
-//    if(not>0){
-//        printf("##############################################################################");
-//        for(i=0;i<series_size;i++)
-//        printf("Not: %d, Filter[%d]=%d, (filter[%d]+%d)\%2)=%d \n",not,i,filter[i],i,not,((filter[i]+not)%2));
-//    }
+    if(not>0){
+        printf("##############################################################################");
+        for(i=0;i<series_size;i++)
+        printf("series_size = %d, Not: %d, filter[%d]=%d, (filter[%d]^%d)=%d, expression=%d \n",
+                series_size,not,i,filter[i],i,not,((filter[i])^not), i<series_size && ( filter==NULL || ((filter[i])^not) ));
+    }
 
     for(i=0; i<series_size && ( filter==NULL || ((filter[i])^not) ) ;i++ ){
 
-        if(not)
+        if(not>0)
             printf("series[%d]=%ld\n",i,series[i]);
 
         if(series[i] < *min)
