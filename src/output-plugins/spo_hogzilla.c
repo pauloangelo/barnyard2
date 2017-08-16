@@ -1302,8 +1302,8 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
 		u_int64_t *avg, u_int64_t *min, u_int64_t *max, u_int64_t *std){
 
     int i;
-    int counter=0;
-    *min=18446744073709551616;
+    u_int64_t counter=0;
+    *min=18446744073709551615;
     *max=0;
     *avg=0;
     *std=0;
