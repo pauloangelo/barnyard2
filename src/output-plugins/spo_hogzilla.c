@@ -1311,46 +1311,28 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
     *max=0;
     *avg=0;
     *std=0;
-    u_int8_t zero8=0;
 
-//    if(not>0){ // HmmmmmmmmmmmmMMMM?!!!! Loop for is bugging me!
-//        printf("##############################################################################\n");
-//        for(i=0;i<series_size;i++)
-//        printf("series_size = %d, Not: %d, filter[%d]=%d, (filter[%d]^%d)=%d, expression=%d \n",
-//                series_size,not,i,filter[i],i,not,((filter[i])^not), i<series_size && ( filter==NULL || ((filter[i])^not) ));
-//    }
-    if(not==0){
-        for(i=0; ((i<series_size) && ( filter==NULL || filter[i]==1 )) ;i++ ){
-            if(series[i] < *min)
-                *min = series[i];
-            if(series[i] > *max)
-                *max = series[i];
-            *avg+=series[i];
-            counter++;
-        }
-    }else{
-        printf("NOT=1, series_size=%d\n",series_size);
-        for(i=0; ((i<series_size) && ( filter==NULL || 1 )) ;i++ ){
-            printf("filter[%d]=%d, series[%d]=%ld, filter==NULL:%d, expre: %d, i<ser:%d, filter:%d \n"
-                    ,i,filter[i],i,series[i],filter==NULL,
-                    ((i<series_size) && ( filter==NULL || filter[i]==zero8 )),
-                    (i<series_size),(filter[i]==zero8));
+    for(i=0; i<series_size ;i++ ){
 
-            if(!( filter==NULL || filter[i]==zero8 )){
-                printf("Continue\n");
-                continue;}
+        printf("filter[%d]=%d, series[%d]=%ld, filter==NULL:%d, expre: %d, i<ser:%d, filter:%d, not:%d \n"
+                ,i,filter[i],i,series[i],filter==NULL,
+                ((i<series_size) && ( filter==NULL || filter[i]==0 )),
+                (i<series_size),(filter[i]==0),not);
 
-            if(series[i] < *min)
-                *min = series[i];
-            if(series[i] > *max)
-                *max = series[i];
-            *avg+=series[i];
-            counter++;
-        }
+        if(!( filter==NULL || (not^(filter[i]==1)) ) )
+            continue;
+
+        if(series[i] < *min)
+            *min = series[i];
+        if(series[i] > *max)
+            *max = series[i];
+        *avg+=series[i];
+        counter++;
     }
 
+
     if(counter!=0)
-    	*avg=*avg/counter;
+        *avg=*avg/counter;
 
     if(not==0){
         for(i=0; ( i<series_size && ( filter==NULL || filter[i]==1 )) ;i++ )
@@ -1361,11 +1343,62 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
     }
 
     if(counter!=0)
-    	*std=*std/counter;
+        *std=*std/counter;
     else
         *min=0;
 
     *std=sqrt(*std);
+
+
+//
+//    if(not==0){
+//        for(i=0; ((i<series_size) && ( filter==NULL || filter[i]==1 )) ;i++ ){
+//            if(series[i] < *min)
+//                *min = series[i];
+//            if(series[i] > *max)
+//                *max = series[i];
+//            *avg+=series[i];
+//            counter++;
+//        }
+//    }else{
+//        printf("NOT=1, series_size=%d\n",series_size);
+//        for(i=0; i<series_size;i++ ){
+//
+//            printf("filter[%d]=%d, series[%d]=%ld, filter==NULL:%d, expre: %d, i<ser:%d, filter:%d \n"
+//                    ,i,filter[i],i,series[i],filter==NULL,
+//                    ((i<series_size) && ( filter==NULL || filter[i]==0 )),
+//                    (i<series_size),(filter[i]==0));
+//
+//            if(!( filter==NULL || filter[i]==0 )){
+//                printf("Continue\n");
+//                continue;}
+//
+//            if(series[i] < *min)
+//                *min = series[i];
+//            if(series[i] > *max)
+//                *max = series[i];
+//            *avg+=series[i];
+//            counter++;
+//        }
+//    }
+//
+//    if(counter!=0)
+//    	*avg=*avg/counter;
+//
+//    if(not==0){
+//        for(i=0; ( i<series_size && ( filter==NULL || filter[i]==1 )) ;i++ )
+//            *std += (*avg-series[i])*(*avg-series[i]);
+//    }else{
+//        for(i=0; ( i<series_size && ( filter==NULL || filter[i]==0 )) ;i++ )
+//            *std += (*avg-series[i])*(*avg-series[i]);
+//    }
+//
+//    if(counter!=0)
+//    	*std=*std/counter;
+//    else
+//        *min=0;
+//
+//    *std=sqrt(*std);
 }
 
 /* ***************************************************** */
