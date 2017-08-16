@@ -1330,7 +1330,10 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
     }else{
         printf("NOT=1, series_size=%d\n",series_size);
         for(i=0; (i<series_size && ( filter==NULL || (~filter[i]) )) ;i++ ){
-            printf("filter[%d]=%d, series[%d]=%ld, filter==NULL:%d, expre: %d \n",i,filter[i],i,series[i],filter==NULL,(i<series_size && ( filter==NULL || (~filter[i]) )));
+            printf("filter[%d]=%d, series[%d]=%ld, filter==NULL:%d, expre: %d, i<ser:%d, ~filter:%d \n"
+                    ,i,filter[i],i,series[i],filter==NULL,
+                    ((i<series_size) && ( filter==NULL || (~filter[i]) )),
+                    (i<series_size),(~filter[i]));
             if(series[i] < *min)
                 *min = series[i];
             if(series[i] > *max)
