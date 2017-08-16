@@ -1309,33 +1309,41 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
     *avg=0;
     *std=0;
 
-    if(not>0){
-        printf("##############################################################################\n");
-        for(i=0;i<series_size;i++)
-        printf("series_size = %d, Not: %d, filter[%d]=%d, (filter[%d]^%d)=%d, expression=%d \n",
-                series_size,not,i,filter[i],i,not,((filter[i])^not), i<series_size && ( filter==NULL || ((filter[i])^not) ));
-    }
-
-    for(i=0; (i<series_size && ( filter==NULL || ((filter[i])^not) )) ;i++ ){
-
-        if(not>0)
-            printf("series[%d]=%ld\n",i,series[i]);
-
-        if(series[i] < *min)
-            *min = series[i];
-
-        if(series[i] > *max)
-            *max = series[i];
-
-        *avg+=series[i];
-        counter++;
+//    if(not>0){ // HmmmmmmmmmmmmMMMM?!!!! Loop for is bugging me!
+//        printf("##############################################################################\n");
+//        for(i=0;i<series_size;i++)
+//        printf("series_size = %d, Not: %d, filter[%d]=%d, (filter[%d]^%d)=%d, expression=%d \n",
+//                series_size,not,i,filter[i],i,not,((filter[i])^not), i<series_size && ( filter==NULL || ((filter[i])^not) ));
+//    }
+    if(not==0){
+        for(i=0; (i<series_size && ( filter==NULL || filter[i] )) ;i++ ){
+            if(series[i] < *min)
+                *min = series[i];
+            if(series[i] > *max)
+                *max = series[i];
+            *avg+=series[i];
+            counter++;
+        }
+    }else{
+        for(i=0; (i<series_size && ( filter==NULL || ~filter[i] )) ;i++ ){
+            if(series[i] < *min)
+                *min = series[i];
+            if(series[i] > *max)
+                *max = series[i];
+            *avg+=series[i];
+            counter++;
+        }
     }
 
     if(counter!=0)
     	*avg=*avg/counter;
 
-    for(i=0; ( i<series_size && ( filter==NULL || ((filter[i])^not) )) ;i++ ){
-    	*std += (*avg-series[i])*(*avg-series[i]);
+    if(not==0){
+        for(i=0; ( i<series_size && ( filter==NULL || filter[i] )) ;i++ )
+            *std += (*avg-series[i])*(*avg-series[i]);
+    }else{
+        for(i=0; ( i<series_size && ( filter==NULL || ~filter[i] )) ;i++ )
+            *std += (*avg-series[i])*(*avg-series[i]);
     }
 
     if(counter!=0)
