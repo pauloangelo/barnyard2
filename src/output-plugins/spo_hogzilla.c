@@ -59,7 +59,7 @@
 #define DNS_FLAGS_MASK                  0x8000
 #define MAX_CONTACTS                    100
 #define CONTACT_NEGLIGIBLE_PAYLOAD      10 /* bytes */
-#define CONTACT_MIN_INTERTIME           5 /* seconds */
+#define CONTACT_MIN_INTERTIME           5000 /* 5seconds */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1145,31 +1145,31 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
     {
         flow->arrival_time[flow->packets] = time;
         flow->inter_time[flow->packets] = time - flow->last_seen;
-        flow->packet_pay_size[flow->packets]=ipsize;
-        flow->packet_header_size[flow->packets]=rawsize-ipsize;
+        flow->packet_pay_size[flow->packets]=payload_len;
+        flow->packet_header_size[flow->packets]=ipsize-payload_len;
         flow->direction[flow->packets]=src_to_dst_direction;
     }
     flow->packets++, flow->bytes += rawsize;
     flow->last_seen = time;
 
-    flow->payload_bytes += ipsize;
+    flow->payload_bytes += payload_len;
     if(flow->packets==1)
     {
-        flow->payload_bytes_first = ipsize;
+        flow->payload_bytes_first = payload_len;
         flow->first_seen=time;
     }
 
     if(src_to_dst_direction)
-      flow->src2dst_packets++, flow->src2dst_pay_bytes += ipsize, flow->src2dst_header_bytes+=rawsize-ipsize;
+      flow->src2dst_packets++, flow->src2dst_pay_bytes += payload_len, flow->src2dst_header_bytes+=ipsize-payload_len;
     else
-      flow->dst2src_packets++, flow->dst2src_pay_bytes += ipsize, flow->dst2src_header_bytes+=rawsize-ipsize;
+      flow->dst2src_packets++, flow->dst2src_pay_bytes += payload_len, flow->dst2src_header_bytes+=ipsize-payload_len;
 
-    if(ipsize==0)
+    if(payload_len==0)
         flow->packets_without_payload++;
 
     flow->flow_duration = time - flow->first_seen;
 
-    variation_comput(&flow->payload_size_variation_expected,&flow->payload_size_variation,(u_int32_t)ipsize);
+    variation_comput(&flow->payload_size_variation_expected,&flow->payload_size_variation,(u_int32_t)payload_len);
 
     if(proto == IPPROTO_TCP){
         flow->packets_syn += tcph->syn;
@@ -1207,7 +1207,7 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
             if(ndpi_flow->l4.tcp.http_stage==1 && flow->request_abs_time == 0){
              /* HTTP Request */
                 flow->request_abs_time=time;
-            }else if(ndpi_flow->l4.tcp.http_stage==2 && ndpi_flow->packet.packet_direction == 1
+            }else if(ndpi_flow->l4.tcp.http_stage==2 && ndpi_flow->packet.packet_direction == 0
                     && flow->request_abs_time > 0 && flow->response_rel_time==0){
              /* HTTP Response */
                 flow->response_rel_time=time-flow->request_abs_time;
@@ -1264,13 +1264,13 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
         if(flow->C_number_of_contacts<= MAX_CONTACTS) {
             /*  statistics for the current contact */
             if(src_to_dst_direction){
-                flow->C_src2dst_pay_bytes[flow->C_number_of_contacts-1]+= ipsize;
+                flow->C_src2dst_pay_bytes[flow->C_number_of_contacts-1]+= payload_len;
                 flow->C_src2dst_packets[flow->C_number_of_contacts-1]++;
-                flow->C_src2dst_header_bytes[flow->C_number_of_contacts-1]+= rawsize - ipsize;
+                flow->C_src2dst_header_bytes[flow->C_number_of_contacts-1]+= ipsize-payload_len;
             }else{
-                flow->C_dst2src_pay_bytes[flow->C_number_of_contacts-1]+= ipsize;
+                flow->C_dst2src_pay_bytes[flow->C_number_of_contacts-1]+= payload_len;
                 flow->C_dst2src_packets[flow->C_number_of_contacts-1]++;
-                flow->C_dst2src_header_bytes[flow->C_number_of_contacts-1]+= rawsize - ipsize;
+                flow->C_dst2src_header_bytes[flow->C_number_of_contacts-1]+= ipsize-payload_len;
             }
 
             if(proto == IPPROTO_TCP){
@@ -1303,7 +1303,7 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
 
     int i;
     int counter=0;
-    *min=sizeof(u_int64_t);
+    *min=18446744073709551616;
     *max=0;
     *avg=0;
     *std=0;
@@ -1329,12 +1329,17 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
 
     if(counter!=0)
     	*std=*std/counter;
+    else
+        *min=0;
+
+    *std=sqrt(*std);
 }
 
 /* ***************************************************** */
 
 static u_int64_t sum_series(u_int64_t *series,int series_size){
 	int i; u_int64_t counter;
+	counter=0;
 	for(i=0;i<series_size;i++)
 		counter += series[i];
 	return counter;
@@ -1410,18 +1415,19 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
 
     int s2dc,d2sc,s2dlast,d2slast;
     s2dc=d2sc=0;
-    s2dlast=d2slast=flow->first_seen;
+    s2dlast=flow->first_seen;
+    d2slast=flow->first_seen;
     u_int64_t inter_time_src2dst[HOGZILLA_MAX_NDPI_PKT_PER_FLOW],
 			  inter_time_dst2src[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
 
     for(i=0;i<series_size;i++){
     	if(flow->direction[i]){
-    		inter_time_src2dst[s2dc] = flow->arrival_time[s2dc] - s2dlast;
-    		s2dlast=flow->arrival_time[s2dc];
+    		inter_time_src2dst[s2dc] = flow->arrival_time[i] - s2dlast;
+    		s2dlast=flow->arrival_time[i];
     		s2dc++;
     	}else{
-    		inter_time_dst2src[d2sc] = flow->arrival_time[d2sc] - d2slast;
-    		d2slast=flow->arrival_time[d2sc];
+    		inter_time_dst2src[d2sc] = flow->arrival_time[i] - d2slast;
+    		d2slast=flow->arrival_time[i];
     		d2sc++;
     	}
     }
@@ -2497,15 +2503,15 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     g_ptr_array_add (mutations, mutation);
     c++;
 
-    // window_scaling_variation  c=64
-    sprintf(text[c], "%d", flow->window_scaling_variation);
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:window_scaling_variation", 29);
-    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
-    g_ptr_array_add (mutations, mutation);
-    c++;
+//    // window_scaling_variation  c=64
+//    sprintf(text[c], "%d", flow->window_scaling_variation);
+//    mutation = g_object_new (TYPE_MUTATION, NULL);
+//    mutation->column = g_byte_array_new ();
+//    mutation->value  = g_byte_array_new ();
+//    g_byte_array_append (mutation->column,(guint*) "flow:window_scaling_variation", 29);
+//    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+//    g_ptr_array_add (mutations, mutation);
+//    c++;
 
     // C_number_of_contacts  c=66
     sprintf(text[c], "%d", flow->C_number_of_contacts);
@@ -3369,6 +3375,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
         sprintf(itime, "%d", flow->inter_time[i]);
         sprintf(psize, "%d", flow->packet_pay_size[i]);
         sprintf(hsize, "%d", flow->packet_header_size[i]);
+        sprintf(direction, "%d", flow->direction[i]);
         sprintf(itimename, "flow:inter_time-%d", i);
         sprintf(psizename, "flow:packet_size-%d", i);
         sprintf(hsizename, "flow:packet_header-%d", i);
