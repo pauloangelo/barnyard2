@@ -1203,9 +1203,6 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
          * HTTP times
          */
         if(ndpi_flow->http_detected){
-
-            ndpi_flow->http.response_status_code
-
             // XXX: response_rel_time always zero
             printFlow(flow);
             printf("HTTP detected! http_stage=%d, request_abs_time=%ld, time=%ld, pkt dir=%d,response_rel_time=%ld, resp_len: %d\n",
