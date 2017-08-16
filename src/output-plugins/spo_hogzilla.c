@@ -26,7 +26,7 @@
  * 
  * Purpose:
  *
- * TODO: HZ
+ *
  * This plugin generates 
  *
  * Arguments:
@@ -292,7 +292,6 @@ static void HogzillaInit(char *args) {
  * Function: ParseHogzillaArgs(char *)
  *
  * Purpose: Process positional args, if any.  Syntax is:
- * TODO HZ
  * output log_tcpdump: [<logpath> [<limit>]]
  * limit ::= <number>('G'|'M'|K')
  *
@@ -811,7 +810,7 @@ void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
 
     Hogzilla_mutations(flow,mutations);
 
-    //TODO HZ: find a better flow ID
+    //FUTURE: HZ: find a better flow ID
     sprintf(str, "%lld.%lld", flow->first_seen,flow->src_ip) ;
     Text * key ;
     key = g_byte_array_new ();
@@ -847,7 +846,7 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
     struct ndpi_flow_info *flow = *(struct ndpi_flow_info **) node;
 
     //  idle connections, Save in HBase and remove
-    if(ndpi_info.num_idle_flows == IDLE_SCAN_BUDGET) /* TODO optimise with a budget-based walk */
+    if(ndpi_info.num_idle_flows == IDLE_SCAN_BUDGET)
         return;
 
     if((which == ndpi_preorder) || (which == ndpi_leaf)) { /* Avoid walking the same node multiple times */
@@ -1112,8 +1111,8 @@ void variation_comput(u_int32_t *expected,u_int32_t * variationSum, u_int32_t cu
 			*expected=currentSize;
 		else if(*expected==0)
 			*expected=1;
-
-		*variationSum+= (((currentSize-(*expected))*(currentSize-(*expected)))*100)/(*expected);
+        //*variationSum+= (((currentSize-(*expected))*(currentSize-(*expected)))*100)/(*expected);
+        *variationSum+= ((abs(currentSize-(*expected)))*100)/(*expected);
 		*expected = (9*(*expected)+currentSize)/10;
 	}
 }
@@ -1204,6 +1203,12 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
          * HTTP times
          */
         if(ndpi_flow->http_detected){
+
+            // XXX: response_rel_time always zero
+            printFlow(flow);
+            printf("HTTP detected! http_stage=%d, request_abs_time=%ld, time=%ld, pkt dir=%d,response_rel_time=%ld\n",
+                    ndpi_flow->l4.tcp.http_stage,flow->request_abs_time,time,ndpi_flow->packet.packet_direction,flow->response_rel_time);
+
             if(ndpi_flow->l4.tcp.http_stage==1 && flow->request_abs_time == 0){
              /* HTTP Request */
                 flow->request_abs_time=time;
@@ -1325,7 +1330,9 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
             counter++;
         }
     }else{
+        printf("NOT=1, series_size=%d\n",series_size);
         for(i=0; (i<series_size && ( filter==NULL || ~filter[i] )) ;i++ ){
+            printf("filter[%d]=%d, series[%d]=%ld\n",i,filter[i],i,series[i]);
             if(series[i] < *min)
                 *min = series[i];
             if(series[i] > *max)
@@ -1430,16 +1437,19 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
 
     series_size=ndpi_min(flow->packets,HOGZILLA_MAX_NDPI_PKT_PER_FLOW);
 
-    avg_min_max_std(flow->packet_pay_size, series_size, flow->direction, 0, &flow->src2dst_pay_bytes_avg,
-                    &flow->src2dst_pay_bytes_min, &flow->src2dst_pay_bytes_max, &flow->src2dst_pay_bytes_std);
+    avg_min_max_std(flow->packet_header_size, series_size, flow->direction, 0, &flow->src2dst_header_bytes_avg,
+                    &flow->src2dst_header_bytes_min, &flow->src2dst_header_bytes_max, &flow->src2dst_header_bytes_std);
+
+
+    // XXX: zeros always!
     avg_min_max_std(flow->packet_pay_size, series_size, flow->direction, 1, &flow->dst2src_pay_bytes_avg,
                     &flow->dst2src_pay_bytes_min, &flow->dst2src_pay_bytes_max, &flow->dst2src_pay_bytes_std);
 
-    avg_min_max_std(flow->packet_header_size, series_size, flow->direction, 0, &flow->src2dst_header_bytes_avg,
-                    &flow->src2dst_header_bytes_min, &flow->src2dst_header_bytes_max, &flow->src2dst_header_bytes_std);
     avg_min_max_std(flow->packet_header_size, series_size, flow->direction, 1, &flow->dst2src_header_bytes_avg,
                     &flow->dst2src_header_bytes_min, &flow->dst2src_header_bytes_max, &flow->dst2src_header_bytes_std);
 
+    avg_min_max_std(flow->packet_pay_size, series_size, flow->direction, 0, &flow->src2dst_pay_bytes_avg,
+                    &flow->src2dst_pay_bytes_min, &flow->src2dst_pay_bytes_max, &flow->src2dst_pay_bytes_std);
 
     int s2dc,d2sc;
     u_int64_t s2dlast,d2slast;
@@ -3398,16 +3408,16 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
         char hsize[10];
         char direction[10];
         char itimename[25];
-        char psizename[25];
-        char hsizename[25];
+        char psizename[30];
+        char hsizename[30];
         char directionname[25];
         sprintf(itime, "%d", flow->inter_time[i]);
         sprintf(psize, "%d", flow->packet_pay_size[i]);
         sprintf(hsize, "%d", flow->packet_header_size[i]);
         sprintf(direction, "%d", flow->direction[i]);
         sprintf(itimename, "flow:inter_time-%d", i);
-        sprintf(psizename, "flow:packet_size-%d", i);
-        sprintf(hsizename, "flow:packet_header-%d", i);
+        sprintf(psizename, "flow:packet_pay_size-%d", i);
+        sprintf(hsizename, "flow:packet_header_size-%d", i);
         sprintf(directionname, "flow:packet_direction-%d", i);
 
         mutation = g_object_new (TYPE_MUTATION, NULL);
