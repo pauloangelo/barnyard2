@@ -1413,7 +1413,8 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
                     &flow->dst2src_header_bytes_min, &flow->dst2src_header_bytes_max, &flow->dst2src_header_bytes_std);
 
 
-    int s2dc,d2sc,s2dlast,d2slast;
+    int s2dc,d2sc;
+    u_int64_t s2dlast,d2slast;
     s2dc=d2sc=0;
     s2dlast=flow->first_seen;
     d2slast=flow->first_seen;
