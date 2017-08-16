@@ -1204,16 +1204,17 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
          */
         if(ndpi_flow->http_detected){
 
+            ndpi_flow->http.response_status_code
+
             // XXX: response_rel_time always zero
             printFlow(flow);
-            printf("HTTP detected! http_stage=%d, request_abs_time=%ld, time=%ld, pkt dir=%d,response_rel_time=%ld\n",
-                    ndpi_flow->l4.tcp.http_stage,flow->request_abs_time,time,ndpi_flow->packet.packet_direction,flow->response_rel_time);
+            printf("HTTP detected! http_stage=%d, request_abs_time=%ld, time=%ld, pkt dir=%d,response_rel_time=%ld, resp_len: %d\n",
+                    ndpi_flow->l4.tcp.http_stage,flow->request_abs_time,time,ndpi_flow->packet.packet_direction,flow->response_rel_time,ndpi_flow->packet.http_response.len);
 
             if(ndpi_flow->l4.tcp.http_stage==1 && flow->request_abs_time == 0){
              /* HTTP Request */
                 flow->request_abs_time=time;
-            }else if(ndpi_flow->l4.tcp.http_stage==2 && ndpi_flow->packet.packet_direction == 0
-                    && flow->request_abs_time > 0 && flow->response_rel_time==0){
+            }else if(ndpi_flow->packet.http_response.len >0 && flow->request_abs_time > 0 && flow->response_rel_time==0){
              /* HTTP Response */
                 flow->response_rel_time=time-flow->request_abs_time;
             }
@@ -1331,8 +1332,8 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
         }
     }else{
         printf("NOT=1, series_size=%d\n",series_size);
-        for(i=0; (i<series_size && ( filter==NULL || ~filter[i] )) ;i++ ){
-            printf("filter[%d]=%d, series[%d]=%ld\n",i,filter[i],i,series[i]);
+        for(i=0; (i<series_size && ( filter==NULL || (~filter[i]) )) ;i++ ){
+            printf("filter[%d]=%d, series[%d]=%ld, filter==NULL:%d \n",i,filter[i],i,series[i],filter==NULL);
             if(series[i] < *min)
                 *min = series[i];
             if(series[i] > *max)
