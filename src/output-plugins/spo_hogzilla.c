@@ -588,6 +588,8 @@ typedef struct ndpi_flow_info {
     u_int64_t flow_use_time;
     u_int64_t flow_idle_time;
 
+
+
     /*
      * packets statistics
      */
@@ -3346,14 +3348,14 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
                 flow->detected_protocol.master_protocol, flow->detected_protocol.app_protocol,
                 ndpi_protocol2name(ndpi_info.ndpi_struct,flow->detected_protocol, buf, sizeof(buf)));
 
-        snprintf(text[c+1],150, "%s", ndpi_get_proto_breed_name(ndpi_info.ndpi_struct,
+        sprintf(text[c+1],"%s", ndpi_get_proto_breed_name(ndpi_info.ndpi_struct,
                 ndpi_get_proto_breed(ndpi_info.ndpi_struct, flow->detected_protocol.app_protocol)));
     } else if(flow->detected_protocol.master_protocol){
         sprintf(text[c], "%u/%s",
                 flow->detected_protocol.master_protocol,
                 ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.master_protocol));
 
-        snprintf(text[c+1],150, "%s", ndpi_get_proto_breed_name(ndpi_info.ndpi_struct,
+        sprintf(text[c+1], "%s", ndpi_get_proto_breed_name(ndpi_info.ndpi_struct,
                 ndpi_get_proto_breed(ndpi_info.ndpi_struct, flow->detected_protocol.master_protocol)));
     } else {
         sprintf(text[c], "%u/%s",
@@ -3361,7 +3363,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
                 ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.app_protocol));
 
 
-        snprintf(text[c+1],150, "%s", ndpi_get_proto_breed_name(ndpi_info.ndpi_struct,
+        sprintf(text[c+1], "%s", ndpi_get_proto_breed_name(ndpi_info.ndpi_struct,
                 ndpi_get_proto_breed(ndpi_info.ndpi_struct, flow->detected_protocol.app_protocol)));
     }
 
