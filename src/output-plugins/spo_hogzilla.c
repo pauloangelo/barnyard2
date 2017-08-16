@@ -1424,10 +1424,12 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
     	if(flow->direction[i]){
     		inter_time_src2dst[s2dc] = flow->arrival_time[i] - s2dlast;
     		s2dlast=flow->arrival_time[i];
+            printf("Inter-time SRC2DST (%d): %ld\n",s2dc,inter_time_src2dst[s2dc]);
     		s2dc++;
     	}else{
     		inter_time_dst2src[d2sc] = flow->arrival_time[i] - d2slast;
     		d2slast=flow->arrival_time[i];
+            printf("Inter-time DST2SRC (%d): %ld\n",d2sc,inter_time_dst2src[d2sc]);
     		d2sc++;
     	}
     }
