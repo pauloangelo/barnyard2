@@ -1309,6 +1309,12 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
     *avg=0;
     *std=0;
 
+    if(not>0){
+        printf("##############################################################################");
+        for(i=0;i<series_size;i++)
+        printf("Not: %d, Filter[%d]=%d, (filter[%d]+%d)\%2) \n",not,i,filter[i],((filter[i]+not)%2));
+    }
+
     for(i=0; i<series_size && ( filter==NULL || ((filter[i]+not)%2)==1 ) ;i++ ){
 
         if(series[i] < *min)
@@ -1361,8 +1367,8 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
         if(flow->C_duration[i]!=0){
               flow->C_dst2src_pay_bytes_rate[i] = flow->C_dst2src_pay_bytes[i]/flow->C_duration[i];
               flow->C_src2dst_pay_bytes_rate[i] = flow->C_src2dst_pay_bytes[i]/flow->C_duration[i];
-              flow->C_dst2src_packets_rate[i]   = flow->C_dst2src_packets[i]/flow->C_duration[i];
-              flow->C_src2dst_packets_rate[i]   = flow->C_src2dst_packets[i]/flow->C_duration[i];
+              flow->C_dst2src_packets_rate[i]   = (flow->C_dst2src_packets[i]*1000)/flow->C_duration[i];
+              flow->C_src2dst_packets_rate[i]   = (flow->C_src2dst_packets[i]*1000)/flow->C_duration[i];
           }
     }
 
@@ -1458,8 +1464,8 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
     if(flow->flow_duration!=0){
     	flow->dst2src_pay_bytes_rate = flow->dst2src_pay_bytes/flow->flow_duration;
     	flow->src2dst_pay_bytes_rate = flow->src2dst_pay_bytes/flow->flow_duration;
-    	flow->dst2src_packets_rate = flow->dst2src_packets/flow->flow_duration;
-    	flow->src2dst_packets_rate = flow->src2dst_packets/flow->flow_duration;
+    	flow->dst2src_packets_rate = (flow->dst2src_packets*1000)/flow->flow_duration;
+    	flow->src2dst_packets_rate = (flow->src2dst_packets*1000)/flow->flow_duration;
     }
 
 
