@@ -1313,12 +1313,6 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
     *std=0;
 
     for(i=0; i<series_size ;i++ ){
-
-        printf("filter[%d]=%d, series[%d]=%ld, filter==NULL:%d, expre: %d, i<ser:%d, filter:%d, not:%d \n"
-                ,i,filter[i],i,series[i],filter==NULL,
-                ((i<series_size) && ( filter==NULL || filter[i]==0 )),
-                (i<series_size),(filter[i]==0),not);
-
         if(!( filter==NULL || (not^(filter[i]==1)) ) )
             continue;
 
@@ -1334,12 +1328,13 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
     if(counter!=0)
         *avg=*avg/counter;
 
-    if(not==0){
-        for(i=0; ( i<series_size && ( filter==NULL || filter[i]==1 )) ;i++ )
-            *std += (*avg-series[i])*(*avg-series[i]);
-    }else{
-        for(i=0; ( i<series_size && ( filter==NULL || filter[i]==0 )) ;i++ )
-            *std += (*avg-series[i])*(*avg-series[i]);
+
+    for(i=0; i<series_size ;i++ ){
+
+        if(!( filter==NULL || (not^(filter[i]==1)) ) )
+            continue;
+
+        *std += (*avg-series[i])*(*avg-series[i]);
     }
 
     if(counter!=0)
