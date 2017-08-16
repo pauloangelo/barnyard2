@@ -1203,11 +1203,6 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
          * HTTP times
          */
         if(ndpi_flow->http_detected){
-            // XXX: response_rel_time always zero
-            printFlow(flow);
-            printf("HTTP detected! http_stage=%d, request_abs_time=%ld, time=%ld, pkt dir=%d,response_rel_time=%ld, resp_len: %d\n",
-                    ndpi_flow->l4.tcp.http_stage,flow->request_abs_time,time,ndpi_flow->packet.packet_direction,flow->response_rel_time,ndpi_flow->packet.http_response.len);
-
             if(ndpi_flow->l4.tcp.http_stage==1 && flow->request_abs_time == 0){
              /* HTTP Request */
                 flow->request_abs_time=time;
@@ -1344,56 +1339,6 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
 
     *std=sqrt(*std);
 
-
-//
-//    if(not==0){
-//        for(i=0; ((i<series_size) && ( filter==NULL || filter[i]==1 )) ;i++ ){
-//            if(series[i] < *min)
-//                *min = series[i];
-//            if(series[i] > *max)
-//                *max = series[i];
-//            *avg+=series[i];
-//            counter++;
-//        }
-//    }else{
-//        printf("NOT=1, series_size=%d\n",series_size);
-//        for(i=0; i<series_size;i++ ){
-//
-//            printf("filter[%d]=%d, series[%d]=%ld, filter==NULL:%d, expre: %d, i<ser:%d, filter:%d \n"
-//                    ,i,filter[i],i,series[i],filter==NULL,
-//                    ((i<series_size) && ( filter==NULL || filter[i]==0 )),
-//                    (i<series_size),(filter[i]==0));
-//
-//            if(!( filter==NULL || filter[i]==0 )){
-//                printf("Continue\n");
-//                continue;}
-//
-//            if(series[i] < *min)
-//                *min = series[i];
-//            if(series[i] > *max)
-//                *max = series[i];
-//            *avg+=series[i];
-//            counter++;
-//        }
-//    }
-//
-//    if(counter!=0)
-//    	*avg=*avg/counter;
-//
-//    if(not==0){
-//        for(i=0; ( i<series_size && ( filter==NULL || filter[i]==1 )) ;i++ )
-//            *std += (*avg-series[i])*(*avg-series[i]);
-//    }else{
-//        for(i=0; ( i<series_size && ( filter==NULL || filter[i]==0 )) ;i++ )
-//            *std += (*avg-series[i])*(*avg-series[i]);
-//    }
-//
-//    if(counter!=0)
-//    	*std=*std/counter;
-//    else
-//        *min=0;
-//
-//    *std=sqrt(*std);
 }
 
 /* ***************************************************** */
@@ -1474,15 +1419,10 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
 
     avg_min_max_std(flow->packet_header_size, series_size, flow->direction, 0, &flow->src2dst_header_bytes_avg,
                     &flow->src2dst_header_bytes_min, &flow->src2dst_header_bytes_max, &flow->src2dst_header_bytes_std);
-
-
-    // XXX: zeros always!
     avg_min_max_std(flow->packet_pay_size, series_size, flow->direction, 1, &flow->dst2src_pay_bytes_avg,
                     &flow->dst2src_pay_bytes_min, &flow->dst2src_pay_bytes_max, &flow->dst2src_pay_bytes_std);
-
     avg_min_max_std(flow->packet_header_size, series_size, flow->direction, 1, &flow->dst2src_header_bytes_avg,
                     &flow->dst2src_header_bytes_min, &flow->dst2src_header_bytes_max, &flow->dst2src_header_bytes_std);
-
     avg_min_max_std(flow->packet_pay_size, series_size, flow->direction, 0, &flow->src2dst_pay_bytes_avg,
                     &flow->src2dst_pay_bytes_min, &flow->src2dst_pay_bytes_max, &flow->src2dst_pay_bytes_std);
 
