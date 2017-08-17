@@ -498,6 +498,7 @@ typedef struct ndpi_flow_info {
     u_int64_t C_dst2src_packets_rate[MAX_CONTACTS];
     u_int64_t C_src2dst_packets_rate[MAX_CONTACTS];
     u_int64_t C_start_time[MAX_CONTACTS];
+    u_int64_t C_inter_start_time[MAX_CONTACTS];
     u_int64_t C_duration[MAX_CONTACTS];
     u_int64_t C_idletime[MAX_CONTACTS]; /*idle time after ith contact*/
     u_int64_t C_packets_syn[MAX_CONTACTS];
@@ -584,6 +585,10 @@ typedef struct ndpi_flow_info {
     u_int64_t C_idletime_min;
     u_int64_t C_idletime_max;
     u_int64_t C_idletime_std;
+    u_int64_t C_inter_start_time_avg;
+    u_int64_t C_inter_start_time_min;
+    u_int64_t C_inter_start_time_max;
+    u_int64_t C_inter_start_time_std;
 
     u_int64_t flow_use_time;
     u_int64_t flow_idle_time;
@@ -1372,6 +1377,13 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
               flow->C_src2dst_packets_rate[i]   = (flow->C_src2dst_packets[i]*1000)/flow->C_duration[i];
           }
     }
+
+    for(i=0;i<series_size-1;i++){
+        flow->C_inter_start_time[i]=flow->C_start_time[i+1]-flow->C_start_time[i];
+    }
+
+    avg_min_max_std(flow->C_inter_start_time,series_size-1, NULL, 0,&flow->C_inter_start_time_avg,
+                &flow->C_inter_start_time_min,&flow->C_inter_start_time_max,&flow->C_inter_start_time_std);
 
     avg_min_max_std(flow->C_src2dst_pay_bytes,series_size, NULL, 0,&flow->C_src2dst_pay_bytes_avg,
                     &flow->C_src2dst_pay_bytes_min,&flow->C_src2dst_pay_bytes_max,&flow->C_src2dst_pay_bytes_std);
@@ -3338,6 +3350,47 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
     c++;
+
+    // C_inter_start_time_avg  c=145
+    sprintf(text[c], "%d", flow->C_inter_start_time_avg);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_inter_start_time_avg", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_inter_start_time_min  c=146
+    sprintf(text[c], "%d", flow->C_inter_start_time_min);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_inter_start_time_min", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_inter_start_time_max  c=147
+    sprintf(text[c], "%d", flow->C_inter_start_time_max);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_inter_start_time_max", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
+    // C_inter_start_time_std  c=148
+    sprintf(text[c], "%d", flow->C_inter_start_time_std);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:C_inter_start_time_std", 27);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
 
 
     // detected_protocol

@@ -155,6 +155,10 @@ flow:flow_use_time|u_int64_t|flow_use_time
 flow:flow_idle_time|u_int64_t|flow_idle_time
 flow:response_rel_time|u_int32_t|response_rel_time
 flow:detection_completed|u_int8_t|detection_completed
+flow:C_inter_start_time_avg|u_int64_t|C_inter_start_time_avg
+flow:C_inter_start_time_min|u_int64_t|C_inter_start_time_min
+flow:C_inter_start_time_max|u_int64_t|C_inter_start_time_max
+flow:C_inter_start_time_std|u_int64_t|C_inter_start_time_std
 EOF`
 do
 namehbase=`echo $i | cut -d'|' -f1`
