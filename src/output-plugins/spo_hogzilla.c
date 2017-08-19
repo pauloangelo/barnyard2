@@ -688,7 +688,9 @@ void cleanBatchMutation(gpointer data, gpointer b) {
     g_byte_array_free(bm->row,TRUE);
     g_ptr_array_foreach(bm->mutations,cleanMutation,(gpointer) NULL);
     g_ptr_array_free(bm->mutations,TRUE);
-    g_object_unref (data);
+    g_object_unref (bm->mutations); /* se gerar erro glib foi aki */
+    g_object_unref (bm);
+    bm->mutations=NULL;
     bm = NULL;
     data = NULL;
 }
@@ -811,7 +813,7 @@ void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
 
     hbase = connectHBase();
 
-    GHashTable * attributes = g_hash_table_new(g_str_hash, g_str_equal);
+
     GPtrArray * mutations;
     mutations = g_ptr_array_new ();
 
@@ -3440,13 +3442,19 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // detected_os
+
+    if(flow->ndpi_flow!=NULL && flow->ndpi_flow->detected_os!=NULL)
+        sprintf(text[c], "%s", flow->ndpi_flow->detected_os);
+    else
+        text[c]="";
+
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
     g_byte_array_append (mutation->column,(guint*) "flow:detected_os", 16);
-    g_byte_array_append (mutation->value ,(guint**) flow->ndpi_flow->detected_os,  strlen(flow->ndpi_flow->detected_os));
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
-
+    c++;
 
 
     // Packets
