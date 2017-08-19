@@ -3446,7 +3446,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     if(flow->ndpi_flow!=NULL && flow->ndpi_flow->detected_os!=NULL)
         sprintf(text[c], "%s", flow->ndpi_flow->detected_os);
     else
-        text[c]="";
+        *text[c]="";
 
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
