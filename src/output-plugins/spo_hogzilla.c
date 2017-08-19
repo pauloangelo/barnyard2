@@ -688,7 +688,6 @@ void cleanBatchMutation(gpointer data, gpointer b) {
     g_byte_array_free(bm->row,TRUE);
     g_ptr_array_foreach(bm->mutations,cleanMutation,(gpointer) NULL);
     g_ptr_array_free(bm->mutations,TRUE);
-    g_object_unref (bm->mutations); /* se gerar erro glib foi aki */
     g_object_unref (bm);
     bm->mutations=NULL;
     bm = NULL;
