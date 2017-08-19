@@ -59,7 +59,7 @@
 #define DNS_FLAGS_MASK                  0x8000
 #define MAX_CONTACTS                    100
 #define CONTACT_NEGLIGIBLE_PAYLOAD      10 /* bytes */
-#define CONTACT_MIN_INTERTIME           5000 /* 5seconds */
+#define CONTACT_MIN_INTERTIME           1000 /* 1seconds */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1306,7 +1306,7 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
  *  */
 
 static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter, int not,
-		u_int64_t *avg, u_int64_t *min, u_int64_t *max, u_int64_t *std){
+		u_int64_t *avg, u_int64_t *min, u_int64_t *max, u_int64_t *std, int avoidZeroValues=0){
 
     int i;
     u_int64_t counter=0;
@@ -1316,7 +1316,7 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
     *std=0;
 
     for(i=0; i<series_size ;i++ ){
-        if(!( filter==NULL || (not^(filter[i]==1)) ) )
+        if(!( filter==NULL || (not^(filter[i]==1)) ) || (avoidZeroValues==1 && series[i] ==0 ))
             continue;
 
         if(series[i] < *min)
@@ -1334,7 +1334,7 @@ static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter,
 
     for(i=0; i<series_size ;i++ ){
 
-        if(!( filter==NULL || (not^(filter[i]==1)) ) )
+        if(!( filter==NULL || (not^(filter[i]==1)) ) || (avoidZeroValues==1 && series[i] ==0 ) )
             continue;
 
         *std += (*avg-series[i])*(*avg-series[i]);
@@ -1387,13 +1387,13 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
                 &flow->C_inter_start_time_min,&flow->C_inter_start_time_max,&flow->C_inter_start_time_std);
 
     avg_min_max_std(flow->C_src2dst_pay_bytes,series_size, NULL, 0,&flow->C_src2dst_pay_bytes_avg,
-                    &flow->C_src2dst_pay_bytes_min,&flow->C_src2dst_pay_bytes_max,&flow->C_src2dst_pay_bytes_std);
+                    &flow->C_src2dst_pay_bytes_min,&flow->C_src2dst_pay_bytes_max,&flow->C_src2dst_pay_bytes_std,1);
     avg_min_max_std(flow->C_src2dst_header_bytes,series_size, NULL, 0, &flow->C_src2dst_header_bytes_avg, 
                     &flow->C_src2dst_header_bytes_min, &flow->C_src2dst_header_bytes_max, &flow->C_src2dst_header_bytes_std);
     avg_min_max_std(flow->C_src2dst_packets,series_size, NULL, 0, &flow->C_src2dst_packets_avg,
                     &flow->C_src2dst_packets_min, &flow->C_src2dst_packets_max, &flow->C_src2dst_packets_std);
     avg_min_max_std(flow->C_dst2src_pay_bytes,series_size, NULL, 0, &flow->C_dst2src_pay_bytes_avg,
-                    &flow->C_dst2src_pay_bytes_min, &flow->C_dst2src_pay_bytes_max, &flow->C_dst2src_pay_bytes_std);
+                    &flow->C_dst2src_pay_bytes_min, &flow->C_dst2src_pay_bytes_max, &flow->C_dst2src_pay_bytes_std,1);
     avg_min_max_std(flow->C_dst2src_header_bytes,series_size, NULL, 0,&flow->C_dst2src_header_bytes_avg,
                     &flow->C_dst2src_header_bytes_min, &flow->C_dst2src_header_bytes_max, &flow->C_dst2src_header_bytes_std);
     avg_min_max_std(flow->C_dst2src_packets,series_size, NULL, 0,&flow->C_dst2src_packets_avg,
@@ -1435,11 +1435,11 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
     avg_min_max_std(flow->packet_header_size, series_size, flow->direction, 0, &flow->src2dst_header_bytes_avg,
                     &flow->src2dst_header_bytes_min, &flow->src2dst_header_bytes_max, &flow->src2dst_header_bytes_std);
     avg_min_max_std(flow->packet_pay_size, series_size, flow->direction, 1, &flow->dst2src_pay_bytes_avg,
-                    &flow->dst2src_pay_bytes_min, &flow->dst2src_pay_bytes_max, &flow->dst2src_pay_bytes_std);
+                    &flow->dst2src_pay_bytes_min, &flow->dst2src_pay_bytes_max, &flow->dst2src_pay_bytes_std,1);
     avg_min_max_std(flow->packet_header_size, series_size, flow->direction, 1, &flow->dst2src_header_bytes_avg,
                     &flow->dst2src_header_bytes_min, &flow->dst2src_header_bytes_max, &flow->dst2src_header_bytes_std);
     avg_min_max_std(flow->packet_pay_size, series_size, flow->direction, 0, &flow->src2dst_pay_bytes_avg,
-                    &flow->src2dst_pay_bytes_min, &flow->src2dst_pay_bytes_max, &flow->src2dst_pay_bytes_std);
+                    &flow->src2dst_pay_bytes_min, &flow->src2dst_pay_bytes_max, &flow->src2dst_pay_bytes_std,1);
 
     int s2dc,d2sc;
     u_int64_t s2dlast,d2slast;
@@ -3694,7 +3694,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
         g_byte_array_append (mutation->value ,(guint**) text[38], strlen(text[38]));
         g_ptr_array_add (mutations, mutation);
 
-        // http.content_type
+        // http.response_status_code
         if(flow->ndpi_flow->http.response_status_code != NULL) {
             mutation = g_object_new (TYPE_MUTATION, NULL);
             mutation->column = g_byte_array_new ();
