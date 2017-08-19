@@ -1305,8 +1305,8 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
  *
  *  */
 
-static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter, int not,
-		u_int64_t *avg, u_int64_t *min, u_int64_t *max, u_int64_t *std, int avoidZeroValues=0){
+static void avg_min_max_std(u_int64_t *series,int series_size, u_int8_t *filter, int not, int avoidZeroValues,
+		u_int64_t *avg, u_int64_t *min, u_int64_t *max, u_int64_t *std){
 
     int i;
     u_int64_t counter=0;
@@ -1383,46 +1383,45 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
         flow->C_inter_start_time[i]=flow->C_start_time[i+1]-flow->C_start_time[i];
     }
 
-    avg_min_max_std(flow->C_inter_start_time,series_size-1, NULL, 0,&flow->C_inter_start_time_avg,
+    avg_min_max_std(flow->C_inter_start_time,series_size-1, NULL, 0,0,&flow->C_inter_start_time_avg,
                 &flow->C_inter_start_time_min,&flow->C_inter_start_time_max,&flow->C_inter_start_time_std);
-
-    avg_min_max_std(flow->C_src2dst_pay_bytes,series_size, NULL, 0,&flow->C_src2dst_pay_bytes_avg,
-                    &flow->C_src2dst_pay_bytes_min,&flow->C_src2dst_pay_bytes_max,&flow->C_src2dst_pay_bytes_std,1);
-    avg_min_max_std(flow->C_src2dst_header_bytes,series_size, NULL, 0, &flow->C_src2dst_header_bytes_avg, 
+    avg_min_max_std(flow->C_src2dst_pay_bytes,series_size, NULL, 0,1,&flow->C_src2dst_pay_bytes_avg,
+                    &flow->C_src2dst_pay_bytes_min,&flow->C_src2dst_pay_bytes_max,&flow->C_src2dst_pay_bytes_std);
+    avg_min_max_std(flow->C_src2dst_header_bytes,series_size, NULL, 0,0, &flow->C_src2dst_header_bytes_avg, 
                     &flow->C_src2dst_header_bytes_min, &flow->C_src2dst_header_bytes_max, &flow->C_src2dst_header_bytes_std);
-    avg_min_max_std(flow->C_src2dst_packets,series_size, NULL, 0, &flow->C_src2dst_packets_avg,
+    avg_min_max_std(flow->C_src2dst_packets,series_size, NULL, 0,0, &flow->C_src2dst_packets_avg,
                     &flow->C_src2dst_packets_min, &flow->C_src2dst_packets_max, &flow->C_src2dst_packets_std);
-    avg_min_max_std(flow->C_dst2src_pay_bytes,series_size, NULL, 0, &flow->C_dst2src_pay_bytes_avg,
-                    &flow->C_dst2src_pay_bytes_min, &flow->C_dst2src_pay_bytes_max, &flow->C_dst2src_pay_bytes_std,1);
-    avg_min_max_std(flow->C_dst2src_header_bytes,series_size, NULL, 0,&flow->C_dst2src_header_bytes_avg,
+    avg_min_max_std(flow->C_dst2src_pay_bytes,series_size, NULL, 0,1, &flow->C_dst2src_pay_bytes_avg,
+                    &flow->C_dst2src_pay_bytes_min, &flow->C_dst2src_pay_bytes_max, &flow->C_dst2src_pay_bytes_std);
+    avg_min_max_std(flow->C_dst2src_header_bytes,series_size, NULL, 0,0,&flow->C_dst2src_header_bytes_avg,
                     &flow->C_dst2src_header_bytes_min, &flow->C_dst2src_header_bytes_max, &flow->C_dst2src_header_bytes_std);
-    avg_min_max_std(flow->C_dst2src_packets,series_size, NULL, 0,&flow->C_dst2src_packets_avg,
+    avg_min_max_std(flow->C_dst2src_packets,series_size, NULL, 0,0,&flow->C_dst2src_packets_avg,
                     &flow->C_dst2src_packets_min, &flow->C_dst2src_packets_max, &flow->C_dst2src_packets_std);
-    avg_min_max_std(flow->C_packets_syn,series_size, NULL, 0, &flow->C_packets_syn_avg,
+    avg_min_max_std(flow->C_packets_syn,series_size, NULL, 0,0, &flow->C_packets_syn_avg,
                     &flow->C_packets_syn_min, &flow->C_packets_syn_max, &flow->C_packets_syn_std);
-    avg_min_max_std(flow->C_packets_ack,series_size, NULL, 0, &flow->C_packets_ack_avg,
+    avg_min_max_std(flow->C_packets_ack,series_size, NULL, 0,0, &flow->C_packets_ack_avg,
                     &flow->C_packets_ack_min, &flow->C_packets_ack_max, &flow->C_packets_ack_std);
-    avg_min_max_std(flow->C_packets_fin,series_size, NULL, 0, &flow->C_packets_fin_avg,
+    avg_min_max_std(flow->C_packets_fin,series_size, NULL, 0,0, &flow->C_packets_fin_avg,
                     &flow->C_packets_fin_min, &flow->C_packets_fin_max, &flow->C_packets_fin_std);
-    avg_min_max_std(flow->C_packets_rst,series_size, NULL, 0, &flow->C_packets_rst_avg,
+    avg_min_max_std(flow->C_packets_rst,series_size, NULL, 0,0, &flow->C_packets_rst_avg,
                     &flow->C_packets_rst_min, &flow->C_packets_rst_max, &flow->C_packets_rst_std);
-    avg_min_max_std(flow->C_packets_psh,series_size, NULL, 0, &flow->C_packets_psh_avg,
+    avg_min_max_std(flow->C_packets_psh,series_size, NULL, 0,0, &flow->C_packets_psh_avg,
                     &flow->C_packets_psh_min, &flow->C_packets_psh_max, &flow->C_packets_psh_std);
-    avg_min_max_std(flow->C_packets_urg,series_size, NULL, 0, &flow->C_packets_urg_avg,
+    avg_min_max_std(flow->C_packets_urg,series_size, NULL, 0,0, &flow->C_packets_urg_avg,
                     &flow->C_packets_urg_min, &flow->C_packets_urg_max, &flow->C_packets_urg_std);
-    avg_min_max_std(flow->C_tcp_retransmissions,series_size, NULL, 0, &flow->C_tcp_retransmissions_avg,
+    avg_min_max_std(flow->C_tcp_retransmissions,series_size, NULL, 0,0, &flow->C_tcp_retransmissions_avg,
                     &flow->C_tcp_retransmissions_min, &flow->C_tcp_retransmissions_max, &flow->C_tcp_retransmissions_std);
-    avg_min_max_std(flow->C_dst2src_pay_bytes_rate,series_size, NULL, 0, &flow->C_dst2src_pay_bytes_rate_avg,
+    avg_min_max_std(flow->C_dst2src_pay_bytes_rate,series_size, NULL, 0,0, &flow->C_dst2src_pay_bytes_rate_avg,
                     &flow->C_dst2src_pay_bytes_rate_min, &flow->C_dst2src_pay_bytes_rate_max, &flow->C_dst2src_pay_bytes_rate_std);
-    avg_min_max_std(flow->C_src2dst_pay_bytes_rate, series_size, NULL, 0, &flow->C_src2dst_pay_bytes_rate_avg,
+    avg_min_max_std(flow->C_src2dst_pay_bytes_rate, series_size, NULL, 0,0, &flow->C_src2dst_pay_bytes_rate_avg,
                     &flow->C_src2dst_pay_bytes_rate_min, &flow->C_src2dst_pay_bytes_rate_max, &flow->C_src2dst_pay_bytes_rate_std);
-    avg_min_max_std(flow->C_dst2src_packets_rate, series_size, NULL, 0, &flow->C_dst2src_packets_rate_avg,
+    avg_min_max_std(flow->C_dst2src_packets_rate, series_size, NULL, 0,0, &flow->C_dst2src_packets_rate_avg,
                     &flow->C_dst2src_packets_rate_min, &flow->C_dst2src_packets_rate_max, &flow->C_dst2src_packets_rate_std);
-    avg_min_max_std(flow->C_src2dst_packets_rate, series_size, NULL, 0, &flow->C_src2dst_packets_rate_avg,
+    avg_min_max_std(flow->C_src2dst_packets_rate, series_size, NULL, 0,0, &flow->C_src2dst_packets_rate_avg,
                     &flow->C_src2dst_packets_rate_min, &flow->C_src2dst_packets_rate_max, &flow->C_src2dst_packets_rate_std);
-    avg_min_max_std(flow->C_duration, series_size, NULL, 0, &flow->C_duration_avg,
+    avg_min_max_std(flow->C_duration, series_size, NULL, 0,0, &flow->C_duration_avg,
                     &flow->C_duration_min, &flow->C_duration_max, &flow->C_duration_std);
-    avg_min_max_std(flow->C_idletime, series_size-1, NULL, 0, &flow->C_idletime_avg, /* idle between contacts */
+    avg_min_max_std(flow->C_idletime, series_size-1, NULL, 0,0, &flow->C_idletime_avg, /* idle between contacts */
                     &flow->C_idletime_min, &flow->C_idletime_max, &flow->C_idletime_std);
 
     flow->flow_use_time=sum_series(flow->C_duration, series_size);
@@ -1432,14 +1431,14 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
 
     series_size=ndpi_min(flow->packets,HOGZILLA_MAX_NDPI_PKT_PER_FLOW);
 
-    avg_min_max_std(flow->packet_header_size, series_size, flow->direction, 0, &flow->src2dst_header_bytes_avg,
+    avg_min_max_std(flow->packet_header_size, series_size, flow->direction, 0,0, &flow->src2dst_header_bytes_avg,
                     &flow->src2dst_header_bytes_min, &flow->src2dst_header_bytes_max, &flow->src2dst_header_bytes_std);
-    avg_min_max_std(flow->packet_pay_size, series_size, flow->direction, 1, &flow->dst2src_pay_bytes_avg,
-                    &flow->dst2src_pay_bytes_min, &flow->dst2src_pay_bytes_max, &flow->dst2src_pay_bytes_std,1);
-    avg_min_max_std(flow->packet_header_size, series_size, flow->direction, 1, &flow->dst2src_header_bytes_avg,
+    avg_min_max_std(flow->packet_pay_size, series_size, flow->direction, 1,1, &flow->dst2src_pay_bytes_avg,
+                    &flow->dst2src_pay_bytes_min, &flow->dst2src_pay_bytes_max, &flow->dst2src_pay_bytes_std);
+    avg_min_max_std(flow->packet_header_size, series_size, flow->direction, 1,0, &flow->dst2src_header_bytes_avg,
                     &flow->dst2src_header_bytes_min, &flow->dst2src_header_bytes_max, &flow->dst2src_header_bytes_std);
-    avg_min_max_std(flow->packet_pay_size, series_size, flow->direction, 0, &flow->src2dst_pay_bytes_avg,
-                    &flow->src2dst_pay_bytes_min, &flow->src2dst_pay_bytes_max, &flow->src2dst_pay_bytes_std,1);
+    avg_min_max_std(flow->packet_pay_size, series_size, flow->direction, 0,1, &flow->src2dst_pay_bytes_avg,
+                    &flow->src2dst_pay_bytes_min, &flow->src2dst_pay_bytes_max, &flow->src2dst_pay_bytes_std);
 
     int s2dc,d2sc;
     u_int64_t s2dlast,d2slast;
@@ -1461,16 +1460,16 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
     	}
     }
 
-    avg_min_max_std(inter_time_src2dst, s2dc, NULL, 0, &flow->src2dst_inter_time_avg,
+    avg_min_max_std(inter_time_src2dst, s2dc, NULL, 0,0, &flow->src2dst_inter_time_avg,
                     &flow->src2dst_inter_time_min, &flow->src2dst_inter_time_max, &flow->src2dst_inter_time_std);
-    avg_min_max_std(inter_time_dst2src, d2sc, NULL, 0, &flow->dst2src_inter_time_avg,
+    avg_min_max_std(inter_time_dst2src, d2sc, NULL, 0,0, &flow->dst2src_inter_time_avg,
                     &flow->dst2src_inter_time_min, &flow->dst2src_inter_time_max, &flow->dst2src_inter_time_std);
 
 
-    avg_min_max_std(flow->inter_time, series_size, NULL, 0, &flow->inter_time_avg,
+    avg_min_max_std(flow->inter_time, series_size, NULL, 0,0, &flow->inter_time_avg,
                      &flow->inter_time_min, &flow->inter_time_max, &flow->inter_time_std);
 
-    avg_min_max_std(flow->packet_pay_size, series_size, NULL, 0, &flow->payload_bytes_avg,
+    avg_min_max_std(flow->packet_pay_size, series_size, NULL, 0,0, &flow->payload_bytes_avg,
                      &flow->payload_bytes_min, &flow->payload_bytes_max, &flow->payload_bytes_std);
 
     if(flow->flow_duration!=0){
