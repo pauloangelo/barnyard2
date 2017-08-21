@@ -390,6 +390,7 @@ typedef struct ndpi_flow_info {
     /* control or not useful vars */
     u_int32_t hashval;
     u_int8_t ip_version;
+    u_int8_t in_idle;
     u_int64_t last_seen;
     u_int8_t  detection_completed,  check_extra_packets;
     u_int16_t vlan_id;
@@ -870,7 +871,7 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
     struct ndpi_flow_info *flow = *(struct ndpi_flow_info **) node;
 
     //  idle connections, Save in HBase and remove
-    if(ndpi_info.num_idle_flows == IDLE_SCAN_BUDGET)
+    if(ndpi_info.num_idle_flows == IDLE_SCAN_BUDGET || flow->in_idle==1)
         return;
 
     if((which == ndpi_preorder) || (which == ndpi_leaf)) { /* Avoid walking the same node multiple times */
@@ -884,6 +885,7 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
 
             /* adding to a queue (we can't delete it from the tree inline ) */
             ndpi_info.idle_flows[ndpi_info.num_idle_flows++] = flow;
+            flow->in_idle=1;
         }
     }
 }
