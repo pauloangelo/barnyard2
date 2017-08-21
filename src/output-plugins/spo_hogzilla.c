@@ -177,7 +177,7 @@ Text * table ;
 
 
 void *HzAlloc(size_t size) {
-    void *mem = malloc(size+1000);
+    void *mem = malloc(size);
     return mem;
 }
 
@@ -3745,8 +3745,8 @@ static void Hogzilla(Packet *p, void *event, uint32_t event_type, void *arg)
         flow=packet_processing_by_pcap( (const struct pcap_pkthdr *) p->pkth, p->pkt);
         if(flow != NULL && event!=NULL && flow->event==NULL)
         {
-            flow->event= (struct Unified2EventCommon*)HzAlloc(sizeof(Unified2EventCommon));
-            memcpy(flow->event, event, sizeof(Unified2EventCommon));
+           // flow->event= (struct Unified2EventCommon*)HzAlloc(sizeof(Unified2EventCommon));
+           // memcpy(flow->event, event, sizeof(Unified2EventCommon));
         }
     }
 
