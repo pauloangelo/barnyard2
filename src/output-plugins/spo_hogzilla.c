@@ -690,7 +690,9 @@ static void free_ndpi_flow(struct ndpi_flow_info *flow) {
 void cleanMutation(gpointer data, gpointer b) {
     Mutation *mutation = (Mutation *) data;
     g_byte_array_free(mutation->column,TRUE);
+    mutation->column=NULL;
     g_byte_array_free(mutation->value,TRUE);
+    mutation->value=NULL;
     g_object_unref (data);
     data = NULL;
     mutation = NULL;
@@ -699,6 +701,7 @@ void cleanMutation(gpointer data, gpointer b) {
 void cleanBatchMutation(gpointer data, gpointer b) {
     BatchMutation *bm = (BatchMutation *) data;
     g_byte_array_free(bm->row,TRUE);
+    bm->row=NULL;
     g_ptr_array_foreach(bm->mutations,cleanMutation,(gpointer) NULL);
     g_ptr_array_free(bm->mutations,TRUE);
     g_object_unref (bm);
