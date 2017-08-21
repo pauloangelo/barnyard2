@@ -416,7 +416,7 @@ Text * table ;
 
 
 void *HzAlloc(size_t size) {
-    void *mem = malloc(size);
+    void *mem = malloc(size*2);
     return mem;
 }
 
