@@ -1766,7 +1766,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
         }
     }
 
-    //updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
+    updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
     // After FIN , save into HBase and remove from tree
     if(iph!=NULL && iph->protocol == IPPROTO_TCP && tcph!=NULL){
@@ -1844,7 +1844,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
 
     c=0;
 
-    updateFlowCountsBeforeInsert(flow);
+    //updateFlowCountsBeforeInsert(flow);
 
 //  There is a limitation on the len of mutations. We are commenting these features which are not so useful
 //    for our current purposes
