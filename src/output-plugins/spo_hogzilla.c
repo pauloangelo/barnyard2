@@ -386,13 +386,14 @@ typedef struct ndpi_flow_info {
     u_int64_t C_last_time; /* timestamp a contact was noticed */
     u_int64_t first_seen;
 
-    /* context and specific information */
-    char bittorent_hash[41];
-    char info[96];
-    char host_server_name[192];
-    struct {
-      char client_info[48], server_info[48];
-    } ssh_ssl;
+//    Not using for now!
+//    /* context and specific information */
+//    char bittorent_hash[41];
+//    char info[96];
+//    char host_server_name[192];
+//    struct {
+//      char client_info[48], server_info[48];
+//    } ssh_ssl;
 
     /* basic vars */
     u_int32_t src_ip;
@@ -480,8 +481,6 @@ typedef struct ndpi_flow_info {
     /* variation estimation */
     u_int32_t payload_size_variation;
     u_int32_t payload_size_variation_expected;
-    u_int32_t window_scaling_variation;
-    u_int32_t window_scaling_variation_expected;
 
     /*
      * Contacts during connections
@@ -791,12 +790,13 @@ static void printFlow(struct ndpi_flow_info *flow) {
         (flow->dst2src_packets > 0) ? "<->" : "->",
         flow->dst2src_packets, (long long unsigned int) flow->dst2src_pay_bytes);
 
-    if(flow->host_server_name[0] != '\0') fprintf(out, "[Host: %s]", flow->host_server_name);
-    if(flow->info[0] != '\0') fprintf(out, "[%s]", flow->info);
-
-    if(flow->ssh_ssl.client_info[0] != '\0') fprintf(out, "[client: %s]", flow->ssh_ssl.client_info);
-    if(flow->ssh_ssl.server_info[0] != '\0') fprintf(out, "[server: %s]", flow->ssh_ssl.server_info);
-    if(flow->bittorent_hash[0] != '\0') fprintf(out, "[BT Hash: %s]", flow->bittorent_hash);
+//    Not using for now
+//    if(flow->host_server_name[0] != '\0') fprintf(out, "[Host: %s]", flow->host_server_name);
+//    if(flow->info[0] != '\0') fprintf(out, "[%s]", flow->info);
+//
+//    if(flow->ssh_ssl.client_info[0] != '\0') fprintf(out, "[client: %s]", flow->ssh_ssl.client_info);
+//    if(flow->ssh_ssl.server_info[0] != '\0') fprintf(out, "[server: %s]", flow->ssh_ssl.server_info);
+//    if(flow->bittorent_hash[0] != '\0') fprintf(out, "[BT Hash: %s]", flow->bittorent_hash);
 
     fprintf(out, "\n");
   }
@@ -848,6 +848,7 @@ void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
     g_byte_array_free(key,TRUE);
     g_ptr_array_foreach(mutations,cleanMutation,(gpointer) NULL);
     g_ptr_array_free(mutations,TRUE);
+    mutations=NULL;
 }
 /* ***************************************************** */
 static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth, void *user_data) {
@@ -1636,45 +1637,46 @@ static struct ndpi_flow_info *packet_processing_by_pcap(const struct pcap_pkthdr
 void process_ndpi_collected_info(struct ndpi_flow_info *flow) {
     if(!flow->ndpi_flow) return;
 
-    snprintf(flow->host_server_name, sizeof(flow->host_server_name), "%s",
-            flow->ndpi_flow->host_server_name);
-
-    /* BITTORRENT */
-    if(flow->detected_protocol.app_protocol == NDPI_PROTOCOL_BITTORRENT) {
-        int i, j, n = 0;
-
-        for(i=0, j = 0; j < sizeof(flow->bittorent_hash)-1; i++) {
-            sprintf(&flow->bittorent_hash[j], "%02x", flow->ndpi_flow->bittorent_hash[i]);
-            j += 2, n += flow->ndpi_flow->bittorent_hash[i];
-        }
-
-        if(n == 0) flow->bittorent_hash[0] = '\0';
-    }
-    /* MDNS */
-    else if(flow->detected_protocol.app_protocol == NDPI_PROTOCOL_MDNS) {
-        snprintf(flow->info, sizeof(flow->info), "%s", flow->ndpi_flow->protos.mdns.answer);
-    }
-    /* UBNTAC2 */
-    else if(flow->detected_protocol.app_protocol == NDPI_PROTOCOL_UBNTAC2) {
-        snprintf(flow->info, sizeof(flow->info), "%s", flow->ndpi_flow->protos.ubntac2.version);
-    }
-    if(flow->detected_protocol.app_protocol != NDPI_PROTOCOL_DNS) {
-        /* SSH */
-        if(flow->detected_protocol.app_protocol == NDPI_PROTOCOL_SSH) {
-            snprintf(flow->ssh_ssl.client_info, sizeof(flow->ssh_ssl.client_info), "%s",
-                    flow->ndpi_flow->protos.ssh.client_signature);
-            snprintf(flow->ssh_ssl.server_info, sizeof(flow->ssh_ssl.server_info), "%s",
-                    flow->ndpi_flow->protos.ssh.server_signature);
-        }
-        /* SSL */
-        else if((flow->detected_protocol.app_protocol == NDPI_PROTOCOL_SSL)
-                || (flow->detected_protocol.master_protocol == NDPI_PROTOCOL_SSL)) {
-            snprintf(flow->ssh_ssl.client_info, sizeof(flow->ssh_ssl.client_info), "%s",
-                    flow->ndpi_flow->protos.ssl.client_certificate);
-            snprintf(flow->ssh_ssl.server_info, sizeof(flow->ssh_ssl.server_info), "%s",
-                    flow->ndpi_flow->protos.ssl.server_certificate);
-        }
-    }
+//    Not using for now
+//    snprintf(flow->host_server_name, sizeof(flow->host_server_name), "%s",
+//            flow->ndpi_flow->host_server_name);
+//
+//    /* BITTORRENT */
+//    if(flow->detected_protocol.app_protocol == NDPI_PROTOCOL_BITTORRENT) {
+//        int i, j, n = 0;
+//
+//        for(i=0, j = 0; j < sizeof(flow->bittorent_hash)-1; i++) {
+//            sprintf(&flow->bittorent_hash[j], "%02x", flow->ndpi_flow->bittorent_hash[i]);
+//            j += 2, n += flow->ndpi_flow->bittorent_hash[i];
+//        }
+//
+//        if(n == 0) flow->bittorent_hash[0] = '\0';
+//    }
+//    /* MDNS */
+//    else if(flow->detected_protocol.app_protocol == NDPI_PROTOCOL_MDNS) {
+//        snprintf(flow->info, sizeof(flow->info), "%s", flow->ndpi_flow->protos.mdns.answer);
+//    }
+//    /* UBNTAC2 */
+//    else if(flow->detected_protocol.app_protocol == NDPI_PROTOCOL_UBNTAC2) {
+//        snprintf(flow->info, sizeof(flow->info), "%s", flow->ndpi_flow->protos.ubntac2.version);
+//    }
+//    if(flow->detected_protocol.app_protocol != NDPI_PROTOCOL_DNS) {
+//        /* SSH */
+//        if(flow->detected_protocol.app_protocol == NDPI_PROTOCOL_SSH) {
+//            snprintf(flow->ssh_ssl.client_info, sizeof(flow->ssh_ssl.client_info), "%s",
+//                    flow->ndpi_flow->protos.ssh.client_signature);
+//            snprintf(flow->ssh_ssl.server_info, sizeof(flow->ssh_ssl.server_info), "%s",
+//                    flow->ndpi_flow->protos.ssh.server_signature);
+//        }
+//        /* SSL */
+//        else if((flow->detected_protocol.app_protocol == NDPI_PROTOCOL_SSL)
+//                || (flow->detected_protocol.master_protocol == NDPI_PROTOCOL_SSL)) {
+//            snprintf(flow->ssh_ssl.client_info, sizeof(flow->ssh_ssl.client_info), "%s",
+//                    flow->ndpi_flow->protos.ssl.client_certificate);
+//            snprintf(flow->ssh_ssl.server_info, sizeof(flow->ssh_ssl.server_info), "%s",
+//                    flow->ndpi_flow->protos.ssl.server_certificate);
+//        }
+//    }
 
 
 }
@@ -1838,55 +1840,57 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
 
     updateFlowCountsBeforeInsert(flow);
 
-    // first_seen  c=0
-    snprintf(text[c], textSize, "%ld", flow->first_seen);
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:first_seen", 15);
-    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
-    g_ptr_array_add (mutations, mutation);
-    c++;
-
-    // bittorent_hash
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*)  "flow:bittorent_hash", 19);
-    g_byte_array_append (mutation->value ,(guint**) flow->bittorent_hash,  strlen(flow->bittorent_hash));
-    g_ptr_array_add (mutations, mutation);
-
-    // info
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*)  "flow:info", 9);
-    g_byte_array_append (mutation->value ,(guint**) flow->info,  strlen(flow->info));
-    g_ptr_array_add (mutations, mutation);
-
-    // host_server_name
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*)  "flow:host_server_name", 21);
-    g_byte_array_append (mutation->value ,(guint**) flow->host_server_name,  strlen(flow->host_server_name));
-    g_ptr_array_add (mutations, mutation);
-
-    // ssh_ssl.client_info
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*)  "flow:ssh_ssl_client_info", 24);
-    g_byte_array_append (mutation->value ,(guint**) flow->ssh_ssl.client_info,  strlen(flow->ssh_ssl.client_info));
-    g_ptr_array_add (mutations, mutation);
-
-    // ssh_ssl.server_info
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*)  "flow:ssh_ssl_server_info", 24);
-    g_byte_array_append (mutation->value ,(guint**) flow->ssh_ssl.server_info,  strlen(flow->ssh_ssl.server_info));
-    g_ptr_array_add (mutations, mutation);
+//  There is a limitation on the len of mutations. We are commenting these features which are not so useful
+//    for our current purposes
+//    // first_seen  c=0
+//    snprintf(text[c], textSize, "%ld", flow->first_seen);
+//    mutation = g_object_new (TYPE_MUTATION, NULL);
+//    mutation->column = g_byte_array_new ();
+//    mutation->value  = g_byte_array_new ();
+//    g_byte_array_append (mutation->column,(guint*) "flow:first_seen", 15);
+//    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+//    g_ptr_array_add (mutations, mutation);
+//    c++;
+//
+//    // bittorent_hash
+//    mutation = g_object_new (TYPE_MUTATION, NULL);
+//    mutation->column = g_byte_array_new ();
+//    mutation->value  = g_byte_array_new ();
+//    g_byte_array_append (mutation->column,(guint*)  "flow:bittorent_hash", 19);
+//    g_byte_array_append (mutation->value ,(guint**) flow->bittorent_hash,  strlen(flow->bittorent_hash));
+//    g_ptr_array_add (mutations, mutation);
+//
+//    // info
+//    mutation = g_object_new (TYPE_MUTATION, NULL);
+//    mutation->column = g_byte_array_new ();
+//    mutation->value  = g_byte_array_new ();
+//    g_byte_array_append (mutation->column,(guint*)  "flow:info", 9);
+//    g_byte_array_append (mutation->value ,(guint**) flow->info,  strlen(flow->info));
+//    g_ptr_array_add (mutations, mutation);
+//
+//    // host_server_name
+//    mutation = g_object_new (TYPE_MUTATION, NULL);
+//    mutation->column = g_byte_array_new ();
+//    mutation->value  = g_byte_array_new ();
+//    g_byte_array_append (mutation->column,(guint*)  "flow:host_server_name", 21);
+//    g_byte_array_append (mutation->value ,(guint**) flow->host_server_name,  strlen(flow->host_server_name));
+//    g_ptr_array_add (mutations, mutation);
+//
+//    // ssh_ssl.client_info
+//    mutation = g_object_new (TYPE_MUTATION, NULL);
+//    mutation->column = g_byte_array_new ();
+//    mutation->value  = g_byte_array_new ();
+//    g_byte_array_append (mutation->column,(guint*)  "flow:ssh_ssl_client_info", 24);
+//    g_byte_array_append (mutation->value ,(guint**) flow->ssh_ssl.client_info,  strlen(flow->ssh_ssl.client_info));
+//    g_ptr_array_add (mutations, mutation);
+//
+//    // ssh_ssl.server_info
+//    mutation = g_object_new (TYPE_MUTATION, NULL);
+//    mutation->column = g_byte_array_new ();
+//    mutation->value  = g_byte_array_new ();
+//    g_byte_array_append (mutation->column,(guint*)  "flow:ssh_ssl_server_info", 24);
+//    g_byte_array_append (mutation->value ,(guint**) flow->ssh_ssl.server_info,  strlen(flow->ssh_ssl.server_info));
+//    g_ptr_array_add (mutations, mutation);
 
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
@@ -3378,14 +3382,14 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
                 flow->detected_protocol.master_protocol, flow->detected_protocol.app_protocol,
                 ndpi_protocol2name(ndpi_info.ndpi_struct,flow->detected_protocol, buf, sizeof(buf)));
 
-        sprintf(text[c+1],"%s", ndpi_get_proto_breed_name(ndpi_info.ndpi_struct,
+        snprintf(text[c+1], textSize,"%s", ndpi_get_proto_breed_name(ndpi_info.ndpi_struct,
                 ndpi_get_proto_breed(ndpi_info.ndpi_struct, flow->detected_protocol.app_protocol)));
     } else if(flow->detected_protocol.master_protocol){
         snprintf(text[c], textSize, "%u/%s",
                 flow->detected_protocol.master_protocol,
                 ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.master_protocol));
 
-        sprintf(text[c+1], "%s", ndpi_get_proto_breed_name(ndpi_info.ndpi_struct,
+        snprintf(text[c+1], textSize, "%s", ndpi_get_proto_breed_name(ndpi_info.ndpi_struct,
                 ndpi_get_proto_breed(ndpi_info.ndpi_struct, flow->detected_protocol.master_protocol)));
     } else {
         snprintf(text[c], textSize, "%u/%s",
@@ -3393,7 +3397,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
                 ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.app_protocol));
 
 
-        sprintf(text[c+1], "%s", ndpi_get_proto_breed_name(ndpi_info.ndpi_struct,
+        snprintf(text[c+1], textSize, "%s", ndpi_get_proto_breed_name(ndpi_info.ndpi_struct,
                 ndpi_get_proto_breed(ndpi_info.ndpi_struct, flow->detected_protocol.app_protocol)));
     }
 
@@ -3421,7 +3425,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     if(flow->ndpi_flow!=NULL && flow->ndpi_flow->detected_os!=NULL){
         snprintf(text[c], textSize, "%s", flow->ndpi_flow->detected_os);
     }else
-        *text[c]="";
+        snprintf(text[c], textSize, "");
 
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
