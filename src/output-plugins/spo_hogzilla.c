@@ -159,7 +159,7 @@ static void closeHBase();
 static void printFlow(struct ndpi_flow_info *);
 static void node_idle_scan_walker(const void *, ndpi_VISIT , int , void *);
 int node_cmp(const void *, const void *);
-static void free_ndpi_flow(struct ndpi_flow_info);
+static void free_ndpi_flow(struct ndpi_flow_info *);
 
 
 
@@ -248,7 +248,7 @@ void scan_idle_flows(){
                 ndpi_tdelete(ndpi_info.idle_flows[--ndpi_info.num_idle_flows], &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_cmp);
                 if(ndpi_info.idle_flows[ndpi_info.num_idle_flows]!=NULL){
 
-                    free_ndpi_flow(ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
+                    free_ndpi_flow( (struct ndpi_flow_info *)  ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
                     free(ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
                     ndpi_info.idle_flows[ndpi_info.num_idle_flows]=NULL;
                     ndpi_info.ndpi_flow_count--;
