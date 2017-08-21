@@ -175,6 +175,12 @@ static u_int16_t decode_tunnels = 0;
 GHashTable * attributes;
 Text * table ;
 
+
+void *HzAlloc(size_t size) {
+    void *mem = malloc(size+1000);
+    return mem;
+}
+
 /*
  * Function: HogzillaSetup()
  *
@@ -1007,7 +1013,7 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
             exit(-1);
         } else {
 
-            struct ndpi_flow_info *newflow = (struct ndpi_flow_info*)malloc(sizeof(struct ndpi_flow_info));
+            struct ndpi_flow_info *newflow = (struct ndpi_flow_info*)HzAlloc(sizeof(struct ndpi_flow_info));
 
             if(newflow == NULL) {
                 LogMessage("ERROR => [Hogzilla] %s(1): not enough memory\n", __FUNCTION__);
@@ -1034,7 +1040,7 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
                 patchIPv6Address(newflow->src_name), patchIPv6Address(newflow->dst_name);
             }
 
-            if((newflow->ndpi_flow = malloc(size_flow_struct)) == NULL) {
+            if((newflow->ndpi_flow = HzAlloc(size_flow_struct)) == NULL) {
                 LogMessage("ERROR => [Hogzilla] %s(2): not enough memory\n", __FUNCTION__);
                 free(newflow);
                 return(NULL);
@@ -1042,14 +1048,14 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
 
             memset(newflow->ndpi_flow, 0, size_flow_struct);
 
-            if((newflow->src_id = malloc(size_id_struct)) == NULL) {
+            if((newflow->src_id = HzAlloc(size_id_struct)) == NULL) {
                 LogMessage("ERROR => [Hogzilla] %s(3): not enough memory\n", __FUNCTION__);
                 free(newflow);
                 return(NULL);
             }
             memset(newflow->src_id, 0, size_id_struct);
 
-            if((newflow->dst_id = malloc(size_id_struct)) == NULL) {
+            if((newflow->dst_id = HzAlloc(size_id_struct)) == NULL) {
                 LogMessage("ERROR => [Hogzilla] %s(4): not enough memory\n", __FUNCTION__);
                 free(newflow);
                 return(NULL);
@@ -3739,7 +3745,7 @@ static void Hogzilla(Packet *p, void *event, uint32_t event_type, void *arg)
         flow=packet_processing_by_pcap( (const struct pcap_pkthdr *) p->pkth, p->pkt);
         if(flow != NULL && event!=NULL && flow->event==NULL)
         {
-            flow->event= (struct Unified2EventCommon*)malloc(sizeof(Unified2EventCommon));
+            flow->event= (struct Unified2EventCommon*)HzAlloc(sizeof(Unified2EventCommon));
             memcpy(flow->event, event, sizeof(Unified2EventCommon));
         }
     }
