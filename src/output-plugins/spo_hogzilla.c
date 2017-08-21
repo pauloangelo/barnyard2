@@ -248,8 +248,10 @@ void scan_idle_flows(){
                 ndpi_tdelete(ndpi_info.idle_flows[--ndpi_info.num_idle_flows], &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_cmp);
                 if(ndpi_info.idle_flows[ndpi_info.num_idle_flows]!=NULL){
 
-                    free_ndpi_flow( (struct ndpi_flow_info *)  ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
-                    free(ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
+                    if(( (struct ndpi_flow_info *)  ndpi_info.idle_flows[ndpi_info.num_idle_flows])->in_idle) {
+                        free_ndpi_flow( (struct ndpi_flow_info *)  ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
+                        free(ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
+                    }
                     ndpi_info.idle_flows[ndpi_info.num_idle_flows]=NULL;
                     ndpi_info.ndpi_flow_count--;
                 }
@@ -278,6 +280,7 @@ void my_alarms(int sig) {
  *
  */
 static void HogzillaInit(char *args) {
+    int i;
     HogzillaData *data;
     DEBUG_WRAP(DebugMessage(DEBUG_INIT,"Output: Hogzilla Initialized\n"););
 
@@ -300,6 +303,10 @@ static void HogzillaInit(char *args) {
     signal(SIGPIPE, signal_callback_handler);
     /* Start timers using ALARMS: Is not running! :( */
     //signal(SIGALRM, my_alarms);  alarm(ALARMS_RUN);
+
+    for(i=0; i< IDLE_SCAN_BUDGET ;i++)
+        ndpi_info.idle_flows[i]=NULL;
+
 }
 
 /*
@@ -390,7 +397,7 @@ typedef struct ndpi_flow_info {
     /* control or not useful vars */
     u_int32_t hashval;
     u_int8_t ip_version;
-    u_int8_t in_idle;
+    int in_idle;
     u_int64_t last_seen;
     u_int8_t  detection_completed,  check_extra_packets;
     u_int16_t vlan_id;
