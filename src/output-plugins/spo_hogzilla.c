@@ -146,6 +146,243 @@ typedef struct {
   uint8_t size;
 } tcp_option_t;
 
+
+// flow tracking
+typedef struct ndpi_flow_info {
+    /* control or not useful vars */
+    u_int32_t hashval;
+    u_int8_t ip_version;
+    int in_idle;
+    u_int64_t last_seen;
+    u_int8_t  detection_completed,  check_extra_packets;
+    u_int16_t vlan_id;
+    u_int8_t saved;
+    u_int8_t fin_stage; /*1: 1st FIN, 2: FIN reply */
+    void *src_id, *dst_id;
+    u_int64_t request_abs_time; /* timestamp used to compute response time for services */
+    u_int64_t C_last_time; /* timestamp a contact was noticed */
+    u_int64_t first_seen;
+
+//    Not using for now!
+//    /* context and specific information */
+//    char bittorent_hash[41];
+//    char info[96];
+//    char host_server_name[192];
+//    struct {
+//      char client_info[48], server_info[48];
+//    } ssh_ssl;
+
+    /* basic vars */
+    u_int32_t src_ip;
+    u_int32_t dst_ip;
+    u_int16_t src_port;
+    u_int16_t dst_port;
+    ndpi_protocol detected_protocol;
+    u_int8_t  protocol, bidirectional;
+    struct ndpi_flow_struct *ndpi_flow;
+    char src_name[32], dst_name[32];
+    u_int64_t bytes;
+    u_int32_t packets;
+    u_int64_t payload_bytes;
+    u_int32_t packets_without_payload;
+    u_int32_t payload_bytes_first;
+
+    /*
+     * more packets statistics
+     */
+    u_int64_t flow_duration;
+    u_int64_t src2dst_pay_bytes;
+    u_int64_t dst2src_pay_bytes;
+    u_int64_t src2dst_header_bytes;
+    u_int64_t dst2src_header_bytes;
+    u_int32_t src2dst_packets;
+    u_int32_t dst2src_packets;
+
+    u_int64_t arrival_time[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
+    u_int8_t  direction[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
+    u_int64_t inter_time[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
+    u_int64_t packet_pay_size[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
+    u_int64_t packet_header_size[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
+
+    u_int64_t src2dst_inter_time_avg;
+    u_int64_t src2dst_inter_time_min;
+    u_int64_t src2dst_inter_time_max;
+    u_int64_t src2dst_inter_time_std;
+    u_int64_t dst2src_inter_time_avg;
+    u_int64_t dst2src_inter_time_min;
+    u_int64_t dst2src_inter_time_max;
+    u_int64_t dst2src_inter_time_std;
+
+    u_int64_t src2dst_pay_bytes_avg;
+    u_int64_t src2dst_pay_bytes_min;
+    u_int64_t src2dst_pay_bytes_max;
+    u_int64_t src2dst_pay_bytes_std;
+    u_int64_t dst2src_pay_bytes_avg;
+    u_int64_t dst2src_pay_bytes_min;
+    u_int64_t dst2src_pay_bytes_max;
+    u_int64_t dst2src_pay_bytes_std;
+
+    u_int64_t dst2src_pay_bytes_rate; /*bytes per second */
+    u_int64_t src2dst_pay_bytes_rate; /*bytes per second */
+    u_int64_t dst2src_packets_rate;   /*packets per second */
+    u_int64_t src2dst_packets_rate;   /*packets per second */
+
+    u_int64_t inter_time_avg;
+    u_int64_t inter_time_min;
+    u_int64_t inter_time_max;
+    u_int64_t inter_time_std;
+
+    u_int64_t payload_bytes_avg;
+    u_int64_t payload_bytes_std;
+    u_int64_t payload_bytes_min;
+    u_int64_t payload_bytes_max;
+
+    u_int64_t src2dst_header_bytes_avg;
+    u_int64_t src2dst_header_bytes_min;
+    u_int64_t src2dst_header_bytes_max;
+    u_int64_t src2dst_header_bytes_std;
+    u_int64_t dst2src_header_bytes_avg;
+    u_int64_t dst2src_header_bytes_min;
+    u_int64_t dst2src_header_bytes_max;
+    u_int64_t dst2src_header_bytes_std;
+
+    /* TCP exclusive features (counting vars) */
+    u_int32_t packets_syn;
+    u_int32_t packets_ack;
+    u_int32_t packets_fin;
+    u_int32_t packets_rst;
+    u_int32_t packets_psh;
+    u_int32_t packets_urg;
+    u_int32_t tcp_retransmissions;
+
+    /* variation estimation */
+    u_int32_t payload_size_variation;
+    u_int32_t payload_size_variation_expected;
+
+    /*
+     * Contacts during connections
+     */
+    u_int32_t C_number_of_contacts;
+    u_int64_t C_src2dst_pay_bytes[MAX_CONTACTS];
+    u_int64_t C_dst2src_pay_bytes[MAX_CONTACTS];
+    u_int64_t C_src2dst_header_bytes[MAX_CONTACTS];
+    u_int64_t C_dst2src_header_bytes[MAX_CONTACTS];
+    u_int64_t C_src2dst_packets[MAX_CONTACTS];
+    u_int64_t C_dst2src_packets[MAX_CONTACTS];
+    u_int64_t C_dst2src_pay_bytes_rate[MAX_CONTACTS];
+    u_int64_t C_src2dst_pay_bytes_rate[MAX_CONTACTS];
+    u_int64_t C_dst2src_packets_rate[MAX_CONTACTS];
+    u_int64_t C_src2dst_packets_rate[MAX_CONTACTS];
+    u_int64_t C_start_time[MAX_CONTACTS];
+    u_int64_t C_inter_start_time[MAX_CONTACTS];
+    u_int64_t C_duration[MAX_CONTACTS];
+    u_int64_t C_idletime[MAX_CONTACTS]; /*idle time after ith contact*/
+    u_int64_t C_packets_syn[MAX_CONTACTS];
+    u_int64_t C_packets_ack[MAX_CONTACTS];
+    u_int64_t C_packets_fin[MAX_CONTACTS];
+    u_int64_t C_packets_rst[MAX_CONTACTS];
+    u_int64_t C_packets_psh[MAX_CONTACTS];
+    u_int64_t C_packets_urg[MAX_CONTACTS];
+    u_int64_t C_tcp_retransmissions[MAX_CONTACTS];
+
+    u_int64_t C_src2dst_pay_bytes_avg;
+    u_int64_t C_src2dst_pay_bytes_min;
+    u_int64_t C_src2dst_pay_bytes_max;
+    u_int64_t C_src2dst_pay_bytes_std;
+    u_int64_t C_src2dst_header_bytes_avg;
+    u_int64_t C_src2dst_header_bytes_min;
+    u_int64_t C_src2dst_header_bytes_max;
+    u_int64_t C_src2dst_header_bytes_std;
+    u_int64_t C_src2dst_packets_avg;
+    u_int64_t C_src2dst_packets_min;
+    u_int64_t C_src2dst_packets_max;
+    u_int64_t C_src2dst_packets_std;
+    u_int64_t C_dst2src_pay_bytes_avg;
+    u_int64_t C_dst2src_pay_bytes_min;
+    u_int64_t C_dst2src_pay_bytes_max;
+    u_int64_t C_dst2src_pay_bytes_std;
+    u_int64_t C_dst2src_header_bytes_avg;
+    u_int64_t C_dst2src_header_bytes_min;
+    u_int64_t C_dst2src_header_bytes_max;
+    u_int64_t C_dst2src_header_bytes_std;
+    u_int64_t C_dst2src_packets_avg;
+    u_int64_t C_dst2src_packets_min;
+    u_int64_t C_dst2src_packets_max;
+    u_int64_t C_dst2src_packets_std;
+    u_int64_t C_packets_syn_avg;
+    u_int64_t C_packets_syn_min;
+    u_int64_t C_packets_syn_max;
+    u_int64_t C_packets_syn_std;
+    u_int64_t C_packets_ack_avg;
+    u_int64_t C_packets_ack_min;
+    u_int64_t C_packets_ack_max;
+    u_int64_t C_packets_ack_std;
+    u_int64_t C_packets_fin_avg;
+    u_int64_t C_packets_fin_min;
+    u_int64_t C_packets_fin_max;
+    u_int64_t C_packets_fin_std;
+    u_int64_t C_packets_rst_avg;
+    u_int64_t C_packets_rst_min;
+    u_int64_t C_packets_rst_max;
+    u_int64_t C_packets_rst_std;
+    u_int64_t C_packets_psh_avg;
+    u_int64_t C_packets_psh_min;
+    u_int64_t C_packets_psh_max;
+    u_int64_t C_packets_psh_std;
+    u_int64_t C_packets_urg_avg;
+    u_int64_t C_packets_urg_min;
+    u_int64_t C_packets_urg_max;
+    u_int64_t C_packets_urg_std;
+    u_int64_t C_tcp_retransmissions_avg;
+    u_int64_t C_tcp_retransmissions_min;
+    u_int64_t C_tcp_retransmissions_max;
+    u_int64_t C_tcp_retransmissions_std;
+    u_int64_t C_dst2src_pay_bytes_rate_avg;
+    u_int64_t C_dst2src_pay_bytes_rate_min;
+    u_int64_t C_dst2src_pay_bytes_rate_max;
+    u_int64_t C_dst2src_pay_bytes_rate_std;
+    u_int64_t C_src2dst_pay_bytes_rate_avg;
+    u_int64_t C_src2dst_pay_bytes_rate_min;
+    u_int64_t C_src2dst_pay_bytes_rate_max;
+    u_int64_t C_src2dst_pay_bytes_rate_std;
+    u_int64_t C_dst2src_packets_rate_avg;
+    u_int64_t C_dst2src_packets_rate_min;
+    u_int64_t C_dst2src_packets_rate_max;
+    u_int64_t C_dst2src_packets_rate_std;
+    u_int64_t C_src2dst_packets_rate_avg;
+    u_int64_t C_src2dst_packets_rate_min;
+    u_int64_t C_src2dst_packets_rate_max;
+    u_int64_t C_src2dst_packets_rate_std;
+    u_int64_t C_duration_avg;
+    u_int64_t C_duration_min;
+    u_int64_t C_duration_max;
+    u_int64_t C_duration_std;
+    u_int64_t C_idletime_avg;
+    u_int64_t C_idletime_min;
+    u_int64_t C_idletime_max;
+    u_int64_t C_idletime_std;
+    u_int64_t C_inter_start_time_avg;
+    u_int64_t C_inter_start_time_min;
+    u_int64_t C_inter_start_time_max;
+    u_int64_t C_inter_start_time_std;
+
+    u_int64_t flow_use_time;
+    u_int64_t flow_idle_time;
+
+
+
+    /*
+     * packets statistics
+     */
+    /* Request and responses times for HTTP and DNS */
+    u_int32_t response_rel_time; /* delta t between request and response */
+
+   /* label information, from misuse IDS */
+    Unified2EventCommon *event;
+
+
+} ndpi_flow_t;
+
 /* list of function prototypes for this output plugin */
 static void HogzillaInit(char *);
 static HogzillaData *ParseHogzillaArgs(char *);
@@ -397,241 +634,6 @@ static void SpoHogzillaRestartFunc(int signal, void *arg) {
 }
 
 
-// flow tracking
-typedef struct ndpi_flow_info {
-    /* control or not useful vars */
-    u_int32_t hashval;
-    u_int8_t ip_version;
-    int in_idle;
-    u_int64_t last_seen;
-    u_int8_t  detection_completed,  check_extra_packets;
-    u_int16_t vlan_id;
-    u_int8_t saved;
-    u_int8_t fin_stage; /*1: 1st FIN, 2: FIN reply */
-    void *src_id, *dst_id;
-    u_int64_t request_abs_time; /* timestamp used to compute response time for services */
-    u_int64_t C_last_time; /* timestamp a contact was noticed */
-    u_int64_t first_seen;
-
-//    Not using for now!
-//    /* context and specific information */
-//    char bittorent_hash[41];
-//    char info[96];
-//    char host_server_name[192];
-//    struct {
-//      char client_info[48], server_info[48];
-//    } ssh_ssl;
-
-    /* basic vars */
-    u_int32_t src_ip;
-    u_int32_t dst_ip;
-    u_int16_t src_port;
-    u_int16_t dst_port;
-    ndpi_protocol detected_protocol;
-    u_int8_t  protocol, bidirectional;
-    struct ndpi_flow_struct *ndpi_flow;
-    char src_name[32], dst_name[32];
-    u_int64_t bytes;
-    u_int32_t packets;
-    u_int64_t payload_bytes;
-    u_int32_t packets_without_payload;
-    u_int32_t payload_bytes_first;
-
-    /*
-     * more packets statistics
-     */
-    u_int64_t flow_duration;
-    u_int64_t src2dst_pay_bytes;
-    u_int64_t dst2src_pay_bytes;
-    u_int64_t src2dst_header_bytes;
-    u_int64_t dst2src_header_bytes;
-    u_int32_t src2dst_packets;
-    u_int32_t dst2src_packets;
-
-    u_int64_t arrival_time[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
-    u_int8_t  direction[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
-    u_int64_t inter_time[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
-    u_int64_t packet_pay_size[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
-    u_int64_t packet_header_size[HOGZILLA_MAX_NDPI_PKT_PER_FLOW];
-
-    u_int64_t src2dst_inter_time_avg;
-    u_int64_t src2dst_inter_time_min;
-    u_int64_t src2dst_inter_time_max;
-    u_int64_t src2dst_inter_time_std;
-    u_int64_t dst2src_inter_time_avg;
-    u_int64_t dst2src_inter_time_min;
-    u_int64_t dst2src_inter_time_max;
-    u_int64_t dst2src_inter_time_std;
-
-    u_int64_t src2dst_pay_bytes_avg;
-    u_int64_t src2dst_pay_bytes_min;
-    u_int64_t src2dst_pay_bytes_max;
-    u_int64_t src2dst_pay_bytes_std;
-    u_int64_t dst2src_pay_bytes_avg;
-    u_int64_t dst2src_pay_bytes_min;
-    u_int64_t dst2src_pay_bytes_max;
-    u_int64_t dst2src_pay_bytes_std;
-
-    u_int64_t dst2src_pay_bytes_rate; /*bytes per second */
-    u_int64_t src2dst_pay_bytes_rate; /*bytes per second */
-    u_int64_t dst2src_packets_rate;   /*packets per second */
-    u_int64_t src2dst_packets_rate;   /*packets per second */
-
-    u_int64_t inter_time_avg;
-    u_int64_t inter_time_min;
-    u_int64_t inter_time_max;
-    u_int64_t inter_time_std;
-
-    u_int64_t payload_bytes_avg;
-    u_int64_t payload_bytes_std;
-    u_int64_t payload_bytes_min;
-    u_int64_t payload_bytes_max;
-
-    u_int64_t src2dst_header_bytes_avg;
-    u_int64_t src2dst_header_bytes_min;
-    u_int64_t src2dst_header_bytes_max;
-    u_int64_t src2dst_header_bytes_std;
-    u_int64_t dst2src_header_bytes_avg;
-    u_int64_t dst2src_header_bytes_min;
-    u_int64_t dst2src_header_bytes_max;
-    u_int64_t dst2src_header_bytes_std;
-
-    /* TCP exclusive features (counting vars) */
-    u_int32_t packets_syn;
-    u_int32_t packets_ack;
-    u_int32_t packets_fin;
-    u_int32_t packets_rst;
-    u_int32_t packets_psh;
-    u_int32_t packets_urg;
-    u_int32_t tcp_retransmissions;
-
-    /* variation estimation */
-    u_int32_t payload_size_variation;
-    u_int32_t payload_size_variation_expected;
-
-    /*
-     * Contacts during connections
-     */
-    u_int32_t C_number_of_contacts;
-    u_int64_t C_src2dst_pay_bytes[MAX_CONTACTS];
-    u_int64_t C_dst2src_pay_bytes[MAX_CONTACTS];
-    u_int64_t C_src2dst_header_bytes[MAX_CONTACTS];
-    u_int64_t C_dst2src_header_bytes[MAX_CONTACTS];
-    u_int64_t C_src2dst_packets[MAX_CONTACTS];
-    u_int64_t C_dst2src_packets[MAX_CONTACTS];
-    u_int64_t C_dst2src_pay_bytes_rate[MAX_CONTACTS];
-    u_int64_t C_src2dst_pay_bytes_rate[MAX_CONTACTS];
-    u_int64_t C_dst2src_packets_rate[MAX_CONTACTS];
-    u_int64_t C_src2dst_packets_rate[MAX_CONTACTS];
-    u_int64_t C_start_time[MAX_CONTACTS];
-    u_int64_t C_inter_start_time[MAX_CONTACTS];
-    u_int64_t C_duration[MAX_CONTACTS];
-    u_int64_t C_idletime[MAX_CONTACTS]; /*idle time after ith contact*/
-    u_int64_t C_packets_syn[MAX_CONTACTS];
-    u_int64_t C_packets_ack[MAX_CONTACTS];
-    u_int64_t C_packets_fin[MAX_CONTACTS];
-    u_int64_t C_packets_rst[MAX_CONTACTS];
-    u_int64_t C_packets_psh[MAX_CONTACTS];
-    u_int64_t C_packets_urg[MAX_CONTACTS];
-    u_int64_t C_tcp_retransmissions[MAX_CONTACTS];
-
-    u_int64_t C_src2dst_pay_bytes_avg;
-    u_int64_t C_src2dst_pay_bytes_min;
-    u_int64_t C_src2dst_pay_bytes_max;
-    u_int64_t C_src2dst_pay_bytes_std;
-    u_int64_t C_src2dst_header_bytes_avg;
-    u_int64_t C_src2dst_header_bytes_min;
-    u_int64_t C_src2dst_header_bytes_max;
-    u_int64_t C_src2dst_header_bytes_std;
-    u_int64_t C_src2dst_packets_avg;
-    u_int64_t C_src2dst_packets_min;
-    u_int64_t C_src2dst_packets_max;
-    u_int64_t C_src2dst_packets_std;
-    u_int64_t C_dst2src_pay_bytes_avg;
-    u_int64_t C_dst2src_pay_bytes_min;
-    u_int64_t C_dst2src_pay_bytes_max;
-    u_int64_t C_dst2src_pay_bytes_std;
-    u_int64_t C_dst2src_header_bytes_avg;
-    u_int64_t C_dst2src_header_bytes_min;
-    u_int64_t C_dst2src_header_bytes_max;
-    u_int64_t C_dst2src_header_bytes_std;
-    u_int64_t C_dst2src_packets_avg;
-    u_int64_t C_dst2src_packets_min;
-    u_int64_t C_dst2src_packets_max;
-    u_int64_t C_dst2src_packets_std;
-    u_int64_t C_packets_syn_avg;
-    u_int64_t C_packets_syn_min;
-    u_int64_t C_packets_syn_max;
-    u_int64_t C_packets_syn_std;
-    u_int64_t C_packets_ack_avg;
-    u_int64_t C_packets_ack_min;
-    u_int64_t C_packets_ack_max;
-    u_int64_t C_packets_ack_std;
-    u_int64_t C_packets_fin_avg;
-    u_int64_t C_packets_fin_min;
-    u_int64_t C_packets_fin_max;
-    u_int64_t C_packets_fin_std;
-    u_int64_t C_packets_rst_avg;
-    u_int64_t C_packets_rst_min;
-    u_int64_t C_packets_rst_max;
-    u_int64_t C_packets_rst_std;
-    u_int64_t C_packets_psh_avg;
-    u_int64_t C_packets_psh_min;
-    u_int64_t C_packets_psh_max;
-    u_int64_t C_packets_psh_std;
-    u_int64_t C_packets_urg_avg;
-    u_int64_t C_packets_urg_min;
-    u_int64_t C_packets_urg_max;
-    u_int64_t C_packets_urg_std;
-    u_int64_t C_tcp_retransmissions_avg;
-    u_int64_t C_tcp_retransmissions_min;
-    u_int64_t C_tcp_retransmissions_max;
-    u_int64_t C_tcp_retransmissions_std;
-    u_int64_t C_dst2src_pay_bytes_rate_avg;
-    u_int64_t C_dst2src_pay_bytes_rate_min;
-    u_int64_t C_dst2src_pay_bytes_rate_max;
-    u_int64_t C_dst2src_pay_bytes_rate_std;
-    u_int64_t C_src2dst_pay_bytes_rate_avg;
-    u_int64_t C_src2dst_pay_bytes_rate_min;
-    u_int64_t C_src2dst_pay_bytes_rate_max;
-    u_int64_t C_src2dst_pay_bytes_rate_std;
-    u_int64_t C_dst2src_packets_rate_avg;
-    u_int64_t C_dst2src_packets_rate_min;
-    u_int64_t C_dst2src_packets_rate_max;
-    u_int64_t C_dst2src_packets_rate_std;
-    u_int64_t C_src2dst_packets_rate_avg;
-    u_int64_t C_src2dst_packets_rate_min;
-    u_int64_t C_src2dst_packets_rate_max;
-    u_int64_t C_src2dst_packets_rate_std;
-    u_int64_t C_duration_avg;
-    u_int64_t C_duration_min;
-    u_int64_t C_duration_max;
-    u_int64_t C_duration_std;
-    u_int64_t C_idletime_avg;
-    u_int64_t C_idletime_min;
-    u_int64_t C_idletime_max;
-    u_int64_t C_idletime_std;
-    u_int64_t C_inter_start_time_avg;
-    u_int64_t C_inter_start_time_min;
-    u_int64_t C_inter_start_time_max;
-    u_int64_t C_inter_start_time_std;
-
-    u_int64_t flow_use_time;
-    u_int64_t flow_idle_time;
-
-
-
-    /*
-     * packets statistics
-     */
-    /* Request and responses times for HTTP and DNS */
-    u_int32_t response_rel_time; /* delta t between request and response */
-
-   /* label information, from misuse IDS */
-    Unified2EventCommon *event;
-
-
-} ndpi_flow_t;
 
 static char* ipProto2Name(u_int16_t proto_id) {
     static char proto[8];
