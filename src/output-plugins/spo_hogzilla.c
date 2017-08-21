@@ -1005,6 +1005,7 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
             LogMessage("ERROR => [Hogzilla] maximum flow count (%u) has been exceeded\n", HOGZILLA_MAX_NDPI_FLOWS);
             exit(-1);
         } else {
+
             struct ndpi_flow_info *newflow = (struct ndpi_flow_info*)malloc(sizeof(struct ndpi_flow_info));
 
             if(newflow == NULL) {
@@ -1826,14 +1827,19 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
 
 
 
-    int c=0;
-    char text[150][50];
+    int c=0, textSize=50;
+    char text[150][textSize+1];
     Mutation *mutation;
+
+    for(c=0;c<textSize;c++)
+       text[c][textSize+1]='\0';
+
+    c=0;
 
     updateFlowCountsBeforeInsert(flow);
 
     // first_seen  c=0
-    sprintf(text[c], "%ld", flow->first_seen);
+    snprintf(text[c], textSize, "%ld", flow->first_seen);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1897,28 +1903,9 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     g_byte_array_append (mutation->value ,(guint*) &flow->dst_ip,  sizeof(u_int32_t));
     g_ptr_array_add (mutations, mutation);
 
-//    // src_ip  c=1
-//    sprintf(text[c], "%ld", flow->src_ip);
-//    mutation = g_object_new (TYPE_MUTATION, NULL);
-//    mutation->column = g_byte_array_new ();
-//    mutation->value  = g_byte_array_new ();
-//    g_byte_array_append (mutation->column,(guint*) "flow:src_ip", 11);
-//    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
-//    g_ptr_array_add (mutations, mutation);
-//    c++;
-//
-//    // dst_ip  c=2
-//    sprintf(text[c], "%ld", flow->dst_ip);
-//    mutation = g_object_new (TYPE_MUTATION, NULL);
-//    mutation->column = g_byte_array_new ();
-//    mutation->value  = g_byte_array_new ();
-//    g_byte_array_append (mutation->column,(guint*) "flow:dst_ip", 11);
-//    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
-//    g_ptr_array_add (mutations, mutation);
-//    c++;
 
     // src_port  c=xx
-    sprintf(text[c], "%ld", ntohs(flow->src_port));
+    snprintf(text[c], textSize, "%ld", ntohs(flow->src_port));
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1928,7 +1915,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst_port  c=4
-    sprintf(text[c], "%ld", ntohs(flow->dst_port));
+    snprintf(text[c], textSize, "%ld", ntohs(flow->dst_port));
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1946,7 +1933,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     g_ptr_array_add (mutations, mutation);
 
     // bidirectional  c=6
-    sprintf(text[c], "%ld", flow->bidirectional);
+    snprintf(text[c], textSize, "%ld", flow->bidirectional);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1972,7 +1959,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     g_ptr_array_add (mutations, mutation);
 
     // bytes  c=7
-    sprintf(text[c], "%ld", flow->bytes);
+    snprintf(text[c], textSize, "%ld", flow->bytes);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1982,7 +1969,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // packets  c=8
-    sprintf(text[c], "%d", flow->packets);
+    snprintf(text[c], textSize, "%d", flow->packets);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -1992,7 +1979,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // payload_bytes  c=9
-    sprintf(text[c], "%ld", flow->payload_bytes);
+    snprintf(text[c], textSize, "%ld", flow->payload_bytes);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2002,7 +1989,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // packets_without_payload  c=10
-    sprintf(text[c], "%d", flow->packets_without_payload);
+    snprintf(text[c], textSize, "%d", flow->packets_without_payload);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2012,7 +1999,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // payload_bytes_first  c=11
-    sprintf(text[c], "%d", flow->payload_bytes_first);
+    snprintf(text[c], textSize, "%d", flow->payload_bytes_first);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2022,7 +2009,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // flow_duration  c=12
-    sprintf(text[c], "%ld", flow->flow_duration);
+    snprintf(text[c], textSize, "%ld", flow->flow_duration);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2032,7 +2019,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_pay_bytes  c=13
-    sprintf(text[c], "%ld", flow->src2dst_pay_bytes);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_pay_bytes);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2042,7 +2029,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_pay_bytes  c=14
-    sprintf(text[c], "%ld", flow->dst2src_pay_bytes);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_pay_bytes);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2052,7 +2039,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_header_bytes  c=15
-    sprintf(text[c], "%ld", flow->src2dst_header_bytes);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_header_bytes);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2062,7 +2049,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_header_bytes  c=16
-    sprintf(text[c], "%ld", flow->dst2src_header_bytes);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_header_bytes);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2072,7 +2059,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_packets  c=17
-    sprintf(text[c], "%d", flow->src2dst_packets);
+    snprintf(text[c], textSize, "%d", flow->src2dst_packets);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2082,7 +2069,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_packets  c=18
-    sprintf(text[c], "%d", flow->dst2src_packets);
+    snprintf(text[c], textSize, "%d", flow->dst2src_packets);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2092,7 +2079,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_inter_time_avg  c=19
-    sprintf(text[c], "%ld", flow->src2dst_inter_time_avg);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_inter_time_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2102,7 +2089,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_inter_time_min  c=20
-    sprintf(text[c], "%ld", flow->src2dst_inter_time_min);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_inter_time_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2112,7 +2099,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_inter_time_max  c=21
-    sprintf(text[c], "%ld", flow->src2dst_inter_time_max);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_inter_time_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2122,7 +2109,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_inter_time_std  c=22
-    sprintf(text[c], "%ld", flow->src2dst_inter_time_std);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_inter_time_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2132,7 +2119,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_inter_time_avg  c=23
-    sprintf(text[c], "%ld", flow->dst2src_inter_time_avg);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_inter_time_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2142,7 +2129,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_inter_time_min  c=24
-    sprintf(text[c], "%ld", flow->dst2src_inter_time_min);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_inter_time_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2152,7 +2139,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_inter_time_max  c=25
-    sprintf(text[c], "%ld", flow->dst2src_inter_time_max);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_inter_time_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2162,7 +2149,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_inter_time_std  c=26
-    sprintf(text[c], "%ld", flow->dst2src_inter_time_std);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_inter_time_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2172,7 +2159,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_pay_bytes_avg  c=27
-    sprintf(text[c], "%ld", flow->src2dst_pay_bytes_avg);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_pay_bytes_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2182,7 +2169,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_pay_bytes_min  c=28
-    sprintf(text[c], "%ld", flow->src2dst_pay_bytes_min);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_pay_bytes_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2192,7 +2179,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_pay_bytes_max  c=29
-    sprintf(text[c], "%ld", flow->src2dst_pay_bytes_max);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_pay_bytes_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2202,7 +2189,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_pay_bytes_std  c=30
-    sprintf(text[c], "%ld", flow->src2dst_pay_bytes_std);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_pay_bytes_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2212,7 +2199,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_pay_bytes_avg  c=31
-    sprintf(text[c], "%ld", flow->dst2src_pay_bytes_avg);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_pay_bytes_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2222,7 +2209,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_pay_bytes_min  c=32
-    sprintf(text[c], "%ld", flow->dst2src_pay_bytes_min);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_pay_bytes_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2232,7 +2219,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_pay_bytes_max  c=33
-    sprintf(text[c], "%ld", flow->dst2src_pay_bytes_max);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_pay_bytes_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2242,7 +2229,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_pay_bytes_std  c=34
-    sprintf(text[c], "%ld", flow->dst2src_pay_bytes_std);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_pay_bytes_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2252,7 +2239,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_pay_bytes_rate  c=35
-    sprintf(text[c], "%ld", flow->dst2src_pay_bytes_rate);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_pay_bytes_rate);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2262,7 +2249,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_pay_bytes_rate  c=36
-    sprintf(text[c], "%ld", flow->src2dst_pay_bytes_rate);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_pay_bytes_rate);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2272,7 +2259,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_packets_rate  c=37
-    sprintf(text[c], "%ld", flow->dst2src_packets_rate);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_packets_rate);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2282,7 +2269,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_packets_rate  c=38
-    sprintf(text[c], "%ld", flow->src2dst_packets_rate);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_packets_rate);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2292,7 +2279,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // inter_time_avg  c=39
-    sprintf(text[c], "%ld", flow->inter_time_avg);
+    snprintf(text[c], textSize, "%ld", flow->inter_time_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2302,7 +2289,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // inter_time_min  c=40
-    sprintf(text[c], "%ld", flow->inter_time_min);
+    snprintf(text[c], textSize, "%ld", flow->inter_time_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2312,7 +2299,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // inter_time_max  c=41
-    sprintf(text[c], "%ld", flow->inter_time_max);
+    snprintf(text[c], textSize, "%ld", flow->inter_time_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2322,7 +2309,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // inter_time_std  c=42
-    sprintf(text[c], "%ld", flow->inter_time_std);
+    snprintf(text[c], textSize, "%ld", flow->inter_time_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2332,7 +2319,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // payload_bytes_avg  c=43
-    sprintf(text[c], "%ld", flow->payload_bytes_avg);
+    snprintf(text[c], textSize, "%ld", flow->payload_bytes_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2342,7 +2329,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // payload_bytes_std  c=44
-    sprintf(text[c], "%ld", flow->payload_bytes_std);
+    snprintf(text[c], textSize, "%ld", flow->payload_bytes_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2352,7 +2339,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // payload_bytes_min  c=45
-    sprintf(text[c], "%ld", flow->payload_bytes_min);
+    snprintf(text[c], textSize, "%ld", flow->payload_bytes_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2362,7 +2349,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // payload_bytes_max  c=46
-    sprintf(text[c], "%ld", flow->payload_bytes_max);
+    snprintf(text[c], textSize, "%ld", flow->payload_bytes_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2372,7 +2359,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_header_bytes_avg  c=47
-    sprintf(text[c], "%ld", flow->src2dst_header_bytes_avg);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_header_bytes_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2382,7 +2369,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_header_bytes_min  c=48
-    sprintf(text[c], "%ld", flow->src2dst_header_bytes_min);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_header_bytes_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2392,7 +2379,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_header_bytes_max  c=49
-    sprintf(text[c], "%ld", flow->src2dst_header_bytes_max);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_header_bytes_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2402,7 +2389,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src2dst_header_bytes_std  c=50
-    sprintf(text[c], "%ld", flow->src2dst_header_bytes_std);
+    snprintf(text[c], textSize, "%ld", flow->src2dst_header_bytes_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2412,7 +2399,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_header_bytes_avg  c=51
-    sprintf(text[c], "%ld", flow->dst2src_header_bytes_avg);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_header_bytes_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2422,7 +2409,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_header_bytes_min  c=52
-    sprintf(text[c], "%ld", flow->dst2src_header_bytes_min);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_header_bytes_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2432,7 +2419,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_header_bytes_max  c=53
-    sprintf(text[c], "%ld", flow->dst2src_header_bytes_max);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_header_bytes_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2442,7 +2429,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // dst2src_header_bytes_std  c=54
-    sprintf(text[c], "%ld", flow->dst2src_header_bytes_std);
+    snprintf(text[c], textSize, "%ld", flow->dst2src_header_bytes_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2452,7 +2439,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // packets_syn  c=55
-    sprintf(text[c], "%d", flow->packets_syn);
+    snprintf(text[c], textSize, "%d", flow->packets_syn);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2462,7 +2449,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // packets_ack  c=56
-    sprintf(text[c], "%d", flow->packets_ack);
+    snprintf(text[c], textSize, "%d", flow->packets_ack);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2472,7 +2459,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // packets_fin  c=57
-    sprintf(text[c], "%d", flow->packets_fin);
+    snprintf(text[c], textSize, "%d", flow->packets_fin);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2482,7 +2469,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // packets_rst  c=58
-    sprintf(text[c], "%d", flow->packets_rst);
+    snprintf(text[c], textSize, "%d", flow->packets_rst);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2492,7 +2479,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // packets_psh  c=59
-    sprintf(text[c], "%d", flow->packets_psh);
+    snprintf(text[c], textSize, "%d", flow->packets_psh);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2502,7 +2489,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // packets_urg  c=60
-    sprintf(text[c], "%d", flow->packets_urg);
+    snprintf(text[c], textSize, "%d", flow->packets_urg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2512,7 +2499,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // tcp_retransmissions  c=61
-    sprintf(text[c], "%d", flow->tcp_retransmissions);
+    snprintf(text[c], textSize, "%d", flow->tcp_retransmissions);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2522,7 +2509,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // payload_size_variation  c=62
-    sprintf(text[c], "%d", flow->payload_size_variation);
+    snprintf(text[c], textSize, "%d", flow->payload_size_variation);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2531,18 +2518,8 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     g_ptr_array_add (mutations, mutation);
     c++;
 
-//    // window_scaling_variation  c=64
-//    sprintf(text[c], "%d", flow->window_scaling_variation);
-//    mutation = g_object_new (TYPE_MUTATION, NULL);
-//    mutation->column = g_byte_array_new ();
-//    mutation->value  = g_byte_array_new ();
-//    g_byte_array_append (mutation->column,(guint*) "flow:window_scaling_variation", 29);
-//    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
-//    g_ptr_array_add (mutations, mutation);
-//    c++;
-
     // C_number_of_contacts  c=66
-    sprintf(text[c], "%d", flow->C_number_of_contacts);
+    snprintf(text[c], textSize, "%d", flow->C_number_of_contacts);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2552,7 +2529,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_pay_bytes_avg  c=67
-    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_pay_bytes_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2562,7 +2539,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_pay_bytes_min  c=68
-    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_min);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_pay_bytes_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2572,7 +2549,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_pay_bytes_max  c=69
-    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_max);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_pay_bytes_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2582,7 +2559,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_pay_bytes_std  c=70
-    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_std);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_pay_bytes_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2592,7 +2569,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_header_bytes_avg  c=71
-    sprintf(text[c], "%ld", flow->C_src2dst_header_bytes_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_header_bytes_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2602,7 +2579,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_header_bytes_min  c=72
-    sprintf(text[c], "%ld", flow->C_src2dst_header_bytes_min);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_header_bytes_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2612,7 +2589,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_header_bytes_max  c=73
-    sprintf(text[c], "%ld", flow->C_src2dst_header_bytes_max);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_header_bytes_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2622,7 +2599,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_header_bytes_std  c=74
-    sprintf(text[c], "%ld", flow->C_src2dst_header_bytes_std);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_header_bytes_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2632,7 +2609,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_packets_avg  c=75
-    sprintf(text[c], "%ld", flow->C_src2dst_packets_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_packets_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2642,7 +2619,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_packets_min  c=76
-    sprintf(text[c], "%ld", flow->C_src2dst_packets_min);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_packets_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2652,7 +2629,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_packets_max  c=77
-    sprintf(text[c], "%ld", flow->C_src2dst_packets_max);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_packets_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2662,7 +2639,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_packets_std  c=78
-    sprintf(text[c], "%ld", flow->C_src2dst_packets_std);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_packets_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2672,7 +2649,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_pay_bytes_avg  c=79
-    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_pay_bytes_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2682,7 +2659,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_pay_bytes_min  c=80
-    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_min);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_pay_bytes_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2692,7 +2669,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_pay_bytes_max  c=81
-    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_max);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_pay_bytes_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2702,7 +2679,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_pay_bytes_std  c=82
-    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_std);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_pay_bytes_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2712,7 +2689,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_header_bytes_avg  c=83
-    sprintf(text[c], "%ld", flow->C_dst2src_header_bytes_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_header_bytes_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2722,7 +2699,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_header_bytes_min  c=84
-    sprintf(text[c], "%ld", flow->C_dst2src_header_bytes_min);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_header_bytes_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2732,7 +2709,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_header_bytes_max  c=85
-    sprintf(text[c], "%ld", flow->C_dst2src_header_bytes_max);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_header_bytes_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2742,7 +2719,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_header_bytes_std  c=86
-    sprintf(text[c], "%ld", flow->C_dst2src_header_bytes_std);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_header_bytes_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2752,7 +2729,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_packets_avg  c=87
-    sprintf(text[c], "%ld", flow->C_dst2src_packets_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_packets_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2762,7 +2739,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_packets_min  c=88
-    sprintf(text[c], "%ld", flow->C_dst2src_packets_min);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_packets_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2772,7 +2749,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_packets_max  c=89
-    sprintf(text[c], "%ld", flow->C_dst2src_packets_max);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_packets_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2782,7 +2759,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_packets_std  c=90
-    sprintf(text[c], "%ld", flow->C_dst2src_packets_std);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_packets_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2792,7 +2769,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_syn_avg  c=91
-    sprintf(text[c], "%ld", flow->C_packets_syn_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_syn_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2802,7 +2779,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_syn_min  c=92
-    sprintf(text[c], "%ld", flow->C_packets_syn_min);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_syn_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2812,7 +2789,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_syn_max  c=93
-    sprintf(text[c], "%ld", flow->C_packets_syn_max);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_syn_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2822,7 +2799,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_syn_std  c=94
-    sprintf(text[c], "%ld", flow->C_packets_syn_std);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_syn_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2832,7 +2809,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_ack_avg  c=95
-    sprintf(text[c], "%ld", flow->C_packets_ack_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_ack_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2842,7 +2819,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_ack_min  c=96
-    sprintf(text[c], "%ld", flow->C_packets_ack_min);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_ack_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2852,7 +2829,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_ack_max  c=97
-    sprintf(text[c], "%ld", flow->C_packets_ack_max);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_ack_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2862,7 +2839,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_ack_std  c=98
-    sprintf(text[c], "%ld", flow->C_packets_ack_std);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_ack_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2872,7 +2849,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_fin_avg  c=99
-    sprintf(text[c], "%ld", flow->C_packets_fin_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_fin_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2882,7 +2859,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_fin_min  c=100
-    sprintf(text[c], "%ld", flow->C_packets_fin_min);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_fin_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2892,7 +2869,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_fin_max  c=101
-    sprintf(text[c], "%ld", flow->C_packets_fin_max);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_fin_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2902,7 +2879,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_fin_std  c=102
-    sprintf(text[c], "%ld", flow->C_packets_fin_std);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_fin_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2912,7 +2889,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_rst_avg  c=103
-    sprintf(text[c], "%ld", flow->C_packets_rst_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_rst_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2922,7 +2899,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_rst_min  c=104
-    sprintf(text[c], "%ld", flow->C_packets_rst_min);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_rst_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2932,7 +2909,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_rst_max  c=105
-    sprintf(text[c], "%ld", flow->C_packets_rst_max);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_rst_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2942,7 +2919,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_rst_std  c=106
-    sprintf(text[c], "%ld", flow->C_packets_rst_std);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_rst_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2952,7 +2929,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_psh_avg  c=107
-    sprintf(text[c], "%ld", flow->C_packets_psh_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_psh_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2962,7 +2939,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_psh_min  c=108
-    sprintf(text[c], "%ld", flow->C_packets_psh_min);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_psh_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2972,7 +2949,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_psh_max  c=109
-    sprintf(text[c], "%ld", flow->C_packets_psh_max);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_psh_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2982,7 +2959,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_psh_std  c=110
-    sprintf(text[c], "%ld", flow->C_packets_psh_std);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_psh_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -2992,7 +2969,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_urg_avg  c=111
-    sprintf(text[c], "%ld", flow->C_packets_urg_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_urg_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3002,7 +2979,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_urg_min  c=112
-    sprintf(text[c], "%ld", flow->C_packets_urg_min);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_urg_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3012,7 +2989,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_urg_max  c=113
-    sprintf(text[c], "%ld", flow->C_packets_urg_max);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_urg_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3022,7 +2999,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_packets_urg_std  c=114
-    sprintf(text[c], "%ld", flow->C_packets_urg_std);
+    snprintf(text[c], textSize, "%ld", flow->C_packets_urg_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3032,7 +3009,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_tcp_retransmissions_avg  c=115
-    sprintf(text[c], "%ld", flow->C_tcp_retransmissions_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_tcp_retransmissions_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3042,7 +3019,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_tcp_retransmissions_min  c=116
-    sprintf(text[c], "%ld", flow->C_tcp_retransmissions_min);
+    snprintf(text[c], textSize, "%ld", flow->C_tcp_retransmissions_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3052,7 +3029,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_tcp_retransmissions_max  c=117
-    sprintf(text[c], "%ld", flow->C_tcp_retransmissions_max);
+    snprintf(text[c], textSize, "%ld", flow->C_tcp_retransmissions_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3062,7 +3039,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_tcp_retransmissions_std  c=118
-    sprintf(text[c], "%ld", flow->C_tcp_retransmissions_std);
+    snprintf(text[c], textSize, "%ld", flow->C_tcp_retransmissions_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3072,7 +3049,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_pay_bytes_rate_avg  c=119
-    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_rate_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_pay_bytes_rate_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3082,7 +3059,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_pay_bytes_rate_min  c=120
-    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_rate_min);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_pay_bytes_rate_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3092,7 +3069,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_pay_bytes_rate_max  c=121
-    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_rate_max);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_pay_bytes_rate_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3102,7 +3079,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_pay_bytes_rate_std  c=122
-    sprintf(text[c], "%ld", flow->C_dst2src_pay_bytes_rate_std);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_pay_bytes_rate_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3112,7 +3089,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_pay_bytes_rate_avg  c=123
-    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_rate_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_pay_bytes_rate_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3122,7 +3099,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_pay_bytes_rate_min  c=124
-    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_rate_min);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_pay_bytes_rate_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3132,7 +3109,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_pay_bytes_rate_max  c=125
-    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_rate_max);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_pay_bytes_rate_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3142,7 +3119,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_pay_bytes_rate_std  c=126
-    sprintf(text[c], "%ld", flow->C_src2dst_pay_bytes_rate_std);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_pay_bytes_rate_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3152,7 +3129,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_packets_rate_avg  c=127
-    sprintf(text[c], "%ld", flow->C_dst2src_packets_rate_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_packets_rate_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3162,7 +3139,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_packets_rate_min  c=128
-    sprintf(text[c], "%ld", flow->C_dst2src_packets_rate_min);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_packets_rate_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3172,7 +3149,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_packets_rate_max  c=129
-    sprintf(text[c], "%ld", flow->C_dst2src_packets_rate_max);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_packets_rate_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3182,7 +3159,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_dst2src_packets_rate_std  c=130
-    sprintf(text[c], "%ld", flow->C_dst2src_packets_rate_std);
+    snprintf(text[c], textSize, "%ld", flow->C_dst2src_packets_rate_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3192,7 +3169,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_packets_rate_avg  c=131
-    sprintf(text[c], "%ld", flow->C_src2dst_packets_rate_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_packets_rate_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3202,7 +3179,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_packets_rate_min  c=132
-    sprintf(text[c], "%ld", flow->C_src2dst_packets_rate_min);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_packets_rate_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3212,7 +3189,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_packets_rate_max  c=133
-    sprintf(text[c], "%ld", flow->C_src2dst_packets_rate_max);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_packets_rate_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3222,7 +3199,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_src2dst_packets_rate_std  c=134
-    sprintf(text[c], "%ld", flow->C_src2dst_packets_rate_std);
+    snprintf(text[c], textSize, "%ld", flow->C_src2dst_packets_rate_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3232,7 +3209,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_duration_avg  c=135
-    sprintf(text[c], "%ld", flow->C_duration_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_duration_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3242,7 +3219,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_duration_min  c=136
-    sprintf(text[c], "%ld", flow->C_duration_min);
+    snprintf(text[c], textSize, "%ld", flow->C_duration_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3252,7 +3229,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_duration_max  c=137
-    sprintf(text[c], "%ld", flow->C_duration_max);
+    snprintf(text[c], textSize, "%ld", flow->C_duration_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3262,7 +3239,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_duration_std  c=138
-    sprintf(text[c], "%ld", flow->C_duration_std);
+    snprintf(text[c], textSize, "%ld", flow->C_duration_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3272,7 +3249,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_idletime_avg  c=139
-    sprintf(text[c], "%ld", flow->C_idletime_avg);
+    snprintf(text[c], textSize, "%ld", flow->C_idletime_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3282,7 +3259,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_idletime_min  c=140
-    sprintf(text[c], "%ld", flow->C_idletime_min);
+    snprintf(text[c], textSize, "%ld", flow->C_idletime_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3292,7 +3269,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_idletime_max  c=141
-    sprintf(text[c], "%ld", flow->C_idletime_max);
+    snprintf(text[c], textSize, "%ld", flow->C_idletime_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3302,7 +3279,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_idletime_std  c=142
-    sprintf(text[c], "%ld", flow->C_idletime_std);
+    snprintf(text[c], textSize, "%ld", flow->C_idletime_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3312,7 +3289,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // flow_use_time  c=143
-    sprintf(text[c], "%ld", flow->flow_use_time);
+    snprintf(text[c], textSize, "%ld", flow->flow_use_time);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3322,7 +3299,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // flow_idle_time  c=144
-    sprintf(text[c], "%ld", flow->flow_idle_time);
+    snprintf(text[c], textSize, "%ld", flow->flow_idle_time);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3332,7 +3309,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // response_rel_time  c=145
-    sprintf(text[c], "%d", flow->response_rel_time);
+    snprintf(text[c], textSize, "%d", flow->response_rel_time);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3342,7 +3319,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // detection_completed
-    sprintf(text[c], "%d", flow->detection_completed);
+    snprintf(text[c], textSize, "%d", flow->detection_completed);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3352,7 +3329,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_inter_start_time_avg  c=145
-    sprintf(text[c], "%d", flow->C_inter_start_time_avg);
+    snprintf(text[c], textSize, "%d", flow->C_inter_start_time_avg);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3362,7 +3339,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_inter_start_time_min  c=146
-    sprintf(text[c], "%d", flow->C_inter_start_time_min);
+    snprintf(text[c], textSize, "%d", flow->C_inter_start_time_min);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3372,7 +3349,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_inter_start_time_max  c=147
-    sprintf(text[c], "%d", flow->C_inter_start_time_max);
+    snprintf(text[c], textSize, "%d", flow->C_inter_start_time_max);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3382,7 +3359,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // C_inter_start_time_std  c=148
-    sprintf(text[c], "%d", flow->C_inter_start_time_std);
+    snprintf(text[c], textSize, "%d", flow->C_inter_start_time_std);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
@@ -3397,21 +3374,21 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     if(flow->detected_protocol.master_protocol && flow->detected_protocol.app_protocol!=NULL && flow->detected_protocol.app_protocol!=0) {
         char buf[64];
 
-        sprintf(text[c], "%u.%u/%s",
+        snprintf(text[c], textSize, "%u.%u/%s",
                 flow->detected_protocol.master_protocol, flow->detected_protocol.app_protocol,
                 ndpi_protocol2name(ndpi_info.ndpi_struct,flow->detected_protocol, buf, sizeof(buf)));
 
         sprintf(text[c+1],"%s", ndpi_get_proto_breed_name(ndpi_info.ndpi_struct,
                 ndpi_get_proto_breed(ndpi_info.ndpi_struct, flow->detected_protocol.app_protocol)));
     } else if(flow->detected_protocol.master_protocol){
-        sprintf(text[c], "%u/%s",
+        snprintf(text[c], textSize, "%u/%s",
                 flow->detected_protocol.master_protocol,
                 ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.master_protocol));
 
         sprintf(text[c+1], "%s", ndpi_get_proto_breed_name(ndpi_info.ndpi_struct,
                 ndpi_get_proto_breed(ndpi_info.ndpi_struct, flow->detected_protocol.master_protocol)));
     } else {
-        sprintf(text[c], "%u/%s",
+        snprintf(text[c], textSize, "%u/%s",
                 flow->detected_protocol.app_protocol,
                 ndpi_get_proto_name(ndpi_info.ndpi_struct, flow->detected_protocol.app_protocol));
 
@@ -3441,9 +3418,9 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
 
     // detected_os
 
-    if(flow->ndpi_flow!=NULL && flow->ndpi_flow->detected_os!=NULL)
-        sprintf(text[c], "%s", flow->ndpi_flow->detected_os);
-    else
+    if(flow->ndpi_flow!=NULL && flow->ndpi_flow->detected_os!=NULL){
+        snprintf(text[c], textSize, "%s", flow->ndpi_flow->detected_os);
+    }else
         *text[c]="";
 
     mutation = g_object_new (TYPE_MUTATION, NULL);
@@ -3505,71 +3482,78 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
         g_ptr_array_add (mutations, mutation);
     }
 
-    if(flow->event!=NULL)
-    {
-        sprintf(text[19], "%d", ntohl(flow->event->sensor_id));
+    if(flow->event!=NULL) {
+        snprintf(text[c], textSize, "%d", ntohl(flow->event->sensor_id));
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "event:sensor_id", 15);
-        g_byte_array_append (mutation->value ,(guint**) text[19], strlen(text[19]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
-        sprintf(text[20], "%u", ntohl(flow->event->event_id));
+        snprintf(text[c], textSize, "%u", ntohl(flow->event->event_id));
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "event:event_id", 14);
-        g_byte_array_append (mutation->value ,(guint**) text[20], strlen(text[20]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
-        sprintf(text[21], "%u", ntohl(flow->event->event_second));
+        snprintf(text[c], textSize, "%u", ntohl(flow->event->event_second));
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "event:event_second", 18);
-        g_byte_array_append (mutation->value ,(guint**) text[21], strlen(text[21]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
-        sprintf(text[22], "%u", ntohl(flow->event->event_microsecond));
+        snprintf(text[c], textSize, "%u", ntohl(flow->event->event_microsecond));
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "event:event_microsecond", 23);
-        g_byte_array_append (mutation->value ,(guint**) text[22], strlen(text[22]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
-        sprintf(text[23], "%u", ntohl(flow->event->signature_id));
+        snprintf(text[c], textSize, "%u", ntohl(flow->event->signature_id));
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "event:signature_id", 18);
-        g_byte_array_append (mutation->value ,(guint**) text[23], strlen(text[23]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
-        sprintf(text[24], "%u", ntohl(flow->event->generator_id));
+        snprintf(text[c], textSize, "%u", ntohl(flow->event->generator_id));
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "event:generator_id", 18);
-        g_byte_array_append (mutation->value ,(guint**) text[24], strlen(text[24]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
-        sprintf(text[25], "%u", ntohl(flow->event->classification_id));
+        snprintf(text[c], textSize, "%u", ntohl(flow->event->classification_id));
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "event:classification_id", 23);
-        g_byte_array_append (mutation->value ,(guint**) text[25], strlen(text[25]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
-        sprintf(text[26], "%u", ntohl(flow->event->priority_id));
+        snprintf(text[c], textSize, "%u", ntohl(flow->event->priority_id));
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "event:priority_id", 17);
-        g_byte_array_append (mutation->value ,(guint**) text[26], strlen(text[26]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
 
     }
@@ -3579,70 +3563,77 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     if(flow->protocol == IPPROTO_UDP && flow->detected_protocol.master_protocol == NDPI_PROTOCOL_DNS ) {
         // for debug: raise(SIGINT);
         // dns.num_queries
-        sprintf(text[28], "%d", flow->ndpi_flow->protos.dns.num_queries);
+        snprintf(text[c], textSize, "%d", flow->ndpi_flow->protos.dns.num_queries);
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "flow:dns_num_queries", 20);
-        g_byte_array_append (mutation->value ,(guint**) text[28], strlen(text[28]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
         // dns.num_answers
-        sprintf(text[29], "%d", flow->ndpi_flow->protos.dns.num_answers);
+        snprintf(text[c], textSize, "%d", flow->ndpi_flow->protos.dns.num_answers);
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "flow:dns_num_answers", 20);
-        g_byte_array_append (mutation->value ,(guint**) text[29], strlen(text[29]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
         // dns.reply_code
-        sprintf(text[30], "%d", flow->ndpi_flow->protos.dns.reply_code);
+        snprintf(text[c], textSize, "%d", flow->ndpi_flow->protos.dns.reply_code);
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "flow:dns_reply_code", 19);
-        g_byte_array_append (mutation->value ,(guint**) text[30], strlen(text[30]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
         // dns.query_type
-        sprintf(text[32], "%d", flow->ndpi_flow->protos.dns.query_type);
+        snprintf(text[c], textSize, "%d", flow->ndpi_flow->protos.dns.query_type);
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "flow:dns_query_type", 19);
-        g_byte_array_append (mutation->value ,(guint**) text[32], strlen(text[32]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
         // dns.query_class
-        sprintf(text[33], "%d", flow->ndpi_flow->protos.dns.query_class);
+        snprintf(text[c], textSize, "%d", flow->ndpi_flow->protos.dns.query_class);
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "flow:dns_query_class", 20);
-        g_byte_array_append (mutation->value ,(guint**) text[33], strlen(text[33]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
         // dns.rsp_type
-        sprintf(text[34], "%d", flow->ndpi_flow->protos.dns.rsp_type);
+        snprintf(text[c], textSize, "%d", flow->ndpi_flow->protos.dns.rsp_type);
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "flow:dns_rsp_type", 17);
-        g_byte_array_append (mutation->value ,(guint**) text[34], strlen(text[34]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
     }
 
     if(flow->protocol == IPPROTO_TCP && flow->detected_protocol.app_protocol == NDPI_PROTOCOL_HTTP ) {
 
         // http.method
-        sprintf(text[35], "%d", flow->ndpi_flow->http.method);
+        snprintf(text[c], textSize, "%d", flow->ndpi_flow->http.method);
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "flow:http_method", 16);
-        g_byte_array_append (mutation->value ,(guint**) text[35], strlen(text[35]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
         // http.url
         if(flow->ndpi_flow->http.url != NULL)
@@ -3653,6 +3644,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
             g_byte_array_append (mutation->column,(guint*) "flow:http_url", 13);
             g_byte_array_append (mutation->value ,(guint**) flow->ndpi_flow->http.url,  strlen(flow->ndpi_flow->http.url));
             g_ptr_array_add (mutations, mutation);
+            c++;
         }
 
         // http.content_type
@@ -3664,34 +3656,38 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
             g_byte_array_append (mutation->column,(guint*) "flow:http_content_type", 22);
             g_byte_array_append (mutation->value ,(guint**) flow->ndpi_flow->http.content_type,  strlen(flow->ndpi_flow->http.content_type));
             g_ptr_array_add (mutations, mutation);
+            c++;
         }
 
         // http.num_request_headers
-        sprintf(text[36], "%d", flow->ndpi_flow->http.num_request_headers);
+        snprintf(text[c], textSize, "%d", flow->ndpi_flow->http.num_request_headers);
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "flow:http_num_request_headers", 29);
-        g_byte_array_append (mutation->value ,(guint**) text[36], strlen(text[36]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
         // http.num_response_headers
-        sprintf(text[37], "%d", flow->ndpi_flow->http.num_response_headers);
+        snprintf(text[c], textSize, "%d", flow->ndpi_flow->http.num_response_headers);
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "flow:http_num_response_headers", 30);
-        g_byte_array_append (mutation->value ,(guint**) text[37], strlen(text[37]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
         // http.request_version
-        sprintf(text[38], "%d", flow->ndpi_flow->http.request_version);
+        snprintf(text[c], textSize, "%d", flow->ndpi_flow->http.request_version);
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
         mutation->value  = g_byte_array_new ();
         g_byte_array_append (mutation->column,(guint*) "flow:http_request_version", 25);
-        g_byte_array_append (mutation->value ,(guint**) text[38], strlen(text[38]));
+        g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
         g_ptr_array_add (mutations, mutation);
+        c++;
 
         // http.response_status_code
         if(flow->ndpi_flow->http.response_status_code != NULL) {
@@ -3701,6 +3697,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
             g_byte_array_append (mutation->column,(guint*) "flow:http_response_status_code", 30);
             g_byte_array_append (mutation->value ,(guint**) flow->ndpi_flow->http.response_status_code,3);
             g_ptr_array_add (mutations, mutation);
+            c++;
         }
     }
 
