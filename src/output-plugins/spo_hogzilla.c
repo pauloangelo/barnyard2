@@ -237,6 +237,9 @@ void check_hbase_open(){
 }
 
 void scan_idle_flows(){
+
+    struct ndpi_flow_info *flow;
+
     if(ndpi_info.last_idle_scan_time + IDLE_SCAN_PERIOD < ndpi_info.last_time) {
             /* scan for idle flows */
             ndpi_twalk(ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_idle_scan_walker,NULL);
@@ -248,11 +251,13 @@ void scan_idle_flows(){
                 ndpi_tdelete(ndpi_info.idle_flows[--ndpi_info.num_idle_flows], &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_cmp);
                 if(ndpi_info.idle_flows[ndpi_info.num_idle_flows]!=NULL){
 
-                    if(( (struct ndpi_flow_info *)  ndpi_info.idle_flows[ndpi_info.num_idle_flows])->in_idle) {
-                        free_ndpi_flow( (struct ndpi_flow_info *)  ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
-                        free(ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
+                    flow = ndpi_info.idle_flows[ndpi_info.num_idle_flows];
+                    if(flow->in_idle) {
+                        free_ndpi_flow(flow);
+                        free(flow);
                     }
                     ndpi_info.idle_flows[ndpi_info.num_idle_flows]=NULL;
+                    flow=NULL;
                     ndpi_info.ndpi_flow_count--;
                 }
             }
