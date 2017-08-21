@@ -1181,8 +1181,7 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
     if(flow->packets==0)
         flow->last_seen = time;
 
-    if(flow->packets<HOGZILLA_MAX_NDPI_PKT_PER_FLOW)
-    {
+    if(flow->packets<HOGZILLA_MAX_NDPI_PKT_PER_FLOW) {
         flow->arrival_time[flow->packets] = time;
         flow->inter_time[flow->packets] = time - flow->last_seen;
         flow->packet_pay_size[flow->packets]=payload_len;
@@ -1748,6 +1747,9 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
 
     if(flow != NULL) {
         ndpi_flow = flow->ndpi_flow;
+        if(ndpi_flow==NULL)
+            printf("######################################################################\n");
+            printFlow(flow);
     } else { // flow is NULL
       return(NULL);
     }
