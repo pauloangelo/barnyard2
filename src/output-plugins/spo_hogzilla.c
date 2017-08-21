@@ -1766,7 +1766,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
         }
     }
 
-    updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
+    //updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
     // After FIN , save into HBase and remove from tree
     if(iph!=NULL && iph->protocol == IPPROTO_TCP && tcph!=NULL){
@@ -3745,8 +3745,8 @@ static void Hogzilla(Packet *p, void *event, uint32_t event_type, void *arg)
         flow=packet_processing_by_pcap( (const struct pcap_pkthdr *) p->pkth, p->pkt);
         if(flow != NULL && event!=NULL && flow->event==NULL)
         {
-           // flow->event= (struct Unified2EventCommon*)HzAlloc(sizeof(Unified2EventCommon));
-           // memcpy(flow->event, event, sizeof(Unified2EventCommon));
+           flow->event= (struct Unified2EventCommon*)HzAlloc(sizeof(Unified2EventCommon));
+           memcpy(flow->event, event, sizeof(Unified2EventCommon));
         }
     }
 
