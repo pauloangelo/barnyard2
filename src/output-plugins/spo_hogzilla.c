@@ -244,7 +244,13 @@ void scan_idle_flows(){
             /* remove idle flows (unfortunately we cannot do this inline) */
             while (ndpi_info.num_idle_flows > 0){
                 ndpi_tdelete(ndpi_info.idle_flows[--ndpi_info.num_idle_flows], &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_cmp);
-                free(ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
+                if(ndpi_info.idle_flows[ndpi_info.num_idle_flows]!=NULL){
+
+                    free_ndpi_flow(ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
+                    free(ndpi_info.idle_flows[ndpi_info.num_idle_flows]);
+                    ndpi_info.idle_flows[ndpi_info.num_idle_flows]=NULL;
+                    ndpi_info.ndpi_flow_count--;
+                }
             }
             // LogMessage("DEBUG => [Hogzilla] Flows in memory: %d \n", ndpi_info.ndpi_flow_count);
             if(++ndpi_info.idle_scan_idx == NUM_ROOTS) ndpi_info.idle_scan_idx = 0;
@@ -731,8 +737,6 @@ void HogzillaSaveFlows() {
             //printFlow(flow);
         }
 
-        free_ndpi_flow(flow);
-        ndpi_info.ndpi_flow_count--;
     }
     //return;
 
