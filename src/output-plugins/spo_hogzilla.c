@@ -407,16 +407,16 @@ HogzillaHBase *hbase;
 struct reader_hogzilla ndpi_info;
 
 static u_int8_t undetected_flows_deleted = 0;
-static u_int32_t size_id_struct = 0;		//< ID tracking structure size
-static u_int32_t size_flow_struct = 0;
 static u_int16_t decode_tunnels = 0;
+#define SIZEOF_ID_STRUCT (sizeof(struct ndpi_id_struct))
+#define SIZEOF_FLOW_STRUCT (sizeof(struct ndpi_flow_struct))
 
 GHashTable * attributes;
 Text * table ;
 
 
 void *HzAlloc(size_t size) {
-    void *mem = malloc(size*2);
+    void *mem = SnortAlloc(size);
     return mem;
 }
 
@@ -452,8 +452,8 @@ void HogzillaSetup(void) {
 
     (ndpi_info.ndpi_struct)->http_dont_dissect_response = 0;
 
-    size_id_struct   = ndpi_detection_get_sizeof_ndpi_id_struct();
-    size_flow_struct = ndpi_detection_get_sizeof_ndpi_flow_struct();
+    //size_id_struct   = ndpi_detection_get_sizeof_ndpi_id_struct();
+    //size_flow_struct = ndpi_detection_get_sizeof_ndpi_flow_struct();
     //LogMessage("DEBUG => [Hogzilla] Line %d in file %s\n", __LINE__, __FILE__);
 }
 
@@ -572,7 +572,7 @@ static HogzillaData *ParseHogzillaArgs(char *args) {
     const char delimiters[] = ":";  
 
     DEBUG_WRAP(DebugMessage(DEBUG_LOG, "ParseHogzillaArgs: %s\n", args););
-    data = (HogzillaData *) SnortAlloc(sizeof(HogzillaData));
+    data = (HogzillaData *) HzAlloc(sizeof(HogzillaData));
 
     if ( data == NULL )
         FatalError("hogzilla: unable to allocate memory!\n");
@@ -1065,27 +1065,27 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
                 patchIPv6Address(newflow->src_name), patchIPv6Address(newflow->dst_name);
             }
 
-            if((newflow->ndpi_flow = HzAlloc(size_flow_struct)) == NULL) {
+            if((newflow->ndpi_flow = HzAlloc(SIZEOF_FLOW_STRUCT)) == NULL) {
                 LogMessage("ERROR => [Hogzilla] %s(2): not enough memory\n", __FUNCTION__);
                 free(newflow);
                 return(NULL);
             }
 
-            memset(newflow->ndpi_flow, 0, size_flow_struct);
+            memset(newflow->ndpi_flow, 0, SIZEOF_FLOW_STRUCT);
 
-            if((newflow->src_id = HzAlloc(size_id_struct)) == NULL) {
+            if((newflow->src_id = HzAlloc(SIZEOF_ID_STRUCT)) == NULL) {
                 LogMessage("ERROR => [Hogzilla] %s(3): not enough memory\n", __FUNCTION__);
                 free(newflow);
                 return(NULL);
             }
-            memset(newflow->src_id, 0, size_id_struct);
+            memset(newflow->src_id, 0, SIZEOF_ID_STRUCT);
 
-            if((newflow->dst_id = HzAlloc(size_id_struct)) == NULL) {
+            if((newflow->dst_id = HzAlloc(SIZEOF_ID_STRUCT)) == NULL) {
                 LogMessage("ERROR => [Hogzilla] %s(4): not enough memory\n", __FUNCTION__);
                 free(newflow);
                 return(NULL);
             }
-            memset(newflow->dst_id, 0, size_id_struct);
+            memset(newflow->dst_id, 0, SIZEOF_ID_STRUCT);
 
             ndpi_tsearch(newflow, &ndpi_info.ndpi_flows_root[idx], node_cmp); /* Add */
             ndpi_info.ndpi_flow_count++;
@@ -1829,7 +1829,7 @@ struct HogzillaHBase *connectHBase() {
     if(hbase != NULL){return hbase;}
 
     //struct HogzillaHBase *hbase;
-    hbase = (HogzillaHBase*) SnortAlloc(sizeof(HogzillaHBase));
+    hbase = (HogzillaHBase*) HzAlloc(sizeof(HogzillaHBase));
 
 #if (!GLIB_CHECK_VERSION (2, 36, 0))
     g_type_init ();
@@ -1869,7 +1869,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
 
     c=0;
 
-    //updateFlowCountsBeforeInsert(flow);
+    updateFlowCountsBeforeInsert(flow);
 
 //  There is a limitation on the len of mutations. We are commenting these features which are not so useful
 //    for our current purposes
@@ -3736,7 +3736,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
         }
     }
 
-
+    mutation=NULL;
 }
 
 
