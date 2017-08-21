@@ -252,7 +252,7 @@ void scan_idle_flows(){
                 if(ndpi_info.idle_flows[ndpi_info.num_idle_flows]!=NULL){
 
                     flow = ndpi_info.idle_flows[ndpi_info.num_idle_flows];
-                    if(flow->in_idle) {
+                    if(flow->in_idle==1) {
                         free_ndpi_flow(flow);
                         free(flow);
                     }
