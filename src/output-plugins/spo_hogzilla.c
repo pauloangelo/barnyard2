@@ -892,7 +892,7 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
     }
 
     if(flow->in_idle==1){
-        printf("Tried to add an idle flow again!\n");
+        //printf("Tried to add an idle flow again!\n");
         return;
     }
 
@@ -1100,7 +1100,8 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
 
             *src = newflow->src_id, *dst = newflow->dst_id;
 
-            // printFlow(thread_id, newflow);
+            printf("Adding new: ==================================================================================\n");
+            printFlow(newflow);
 
             return newflow ;
         }
