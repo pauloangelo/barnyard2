@@ -885,8 +885,16 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
     struct ndpi_flow_info *flow = *(struct ndpi_flow_info **) node;
 
     //  idle connections, Save in HBase and remove
-    if(ndpi_info.num_idle_flows == IDLE_SCAN_BUDGET || flow->in_idle==1)
+
+    if(ndpi_info.num_idle_flows == IDLE_SCAN_BUDGET){
+        printf("IDLE_SCAN_BUDGET reached!\n");
         return;
+    }
+
+    if(flow->in_idle==1){
+        printf("Tried to add an idle flow again!\n");
+        return;
+    }
 
     if((which == ndpi_preorder) || (which == ndpi_leaf)) { /* Avoid walking the same node multiple times */
         if(flow->last_seen + HOGZILLA_MAX_IDLE_TIME < ndpi_info.last_time) {
