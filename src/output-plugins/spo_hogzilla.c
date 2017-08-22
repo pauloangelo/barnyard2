@@ -1100,13 +1100,15 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
 
             *src = newflow->src_id, *dst = newflow->dst_id;
 
-            printf("Adding new: ==================================================================================\n");
-            printFlow(newflow);
+
 
             return newflow ;
         }
     } else {
         struct ndpi_flow_info *flow = *(struct ndpi_flow_info**)ret;
+
+        printf("Found: ==================================================================================\n");
+        printFlow(flow);
 
         if(flow->src_ip == iph->saddr
            && flow->dst_ip == iph->daddr
