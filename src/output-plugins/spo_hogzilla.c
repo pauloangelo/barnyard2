@@ -1107,9 +1107,6 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
     } else {
         struct ndpi_flow_info *flow = *(struct ndpi_flow_info**)ret;
 
-        printf("Found: ==================================================================================\n");
-        printFlow(flow);
-
         if(flow->src_ip == iph->saddr
            && flow->dst_ip == iph->daddr
            && flow->src_port == htons(*sport)
@@ -3599,7 +3596,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
 
 
 
-    if(flow->protocol == IPPROTO_UDP && flow->detected_protocol.master_protocol == NDPI_PROTOCOL_DNS ) {
+    if(flow->protocol == IPPROTO_UDP && flow->detected_protocol.master_protocol == NDPI_PROTOCOL_DNS && flow->ndpi_flow!=NULL) {
         // for debug: raise(SIGINT);
         // dns.num_queries
         snprintf(text[c], textSize, "%d", flow->ndpi_flow->protos.dns.num_queries);
@@ -3662,7 +3659,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
         c++;
     }
 
-    if(flow->protocol == IPPROTO_TCP && flow->detected_protocol.app_protocol == NDPI_PROTOCOL_HTTP ) {
+    if(flow->protocol == IPPROTO_TCP && flow->detected_protocol.app_protocol == NDPI_PROTOCOL_HTTP  && flow->ndpi_flow!=NULL) {
 
         // http.method
         snprintf(text[c], textSize, "%d", flow->ndpi_flow->http.method);
