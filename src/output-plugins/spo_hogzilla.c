@@ -1934,20 +1934,6 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
 //    g_byte_array_append (mutation->value ,(guint**) flow->ssh_ssl.server_info,  strlen(flow->ssh_ssl.server_info));
 //    g_ptr_array_add (mutations, mutation);
 
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:src_ip", 11);
-    g_byte_array_append (mutation->value ,(guint*) &flow->src_ip,  sizeof(u_int32_t));
-    g_ptr_array_add (mutations, mutation);
-
-
-    mutation = g_object_new (TYPE_MUTATION, NULL);
-    mutation->column = g_byte_array_new ();
-    mutation->value  = g_byte_array_new ();
-    g_byte_array_append (mutation->column,(guint*) "flow:dst_ip", 11);
-    g_byte_array_append (mutation->value ,(guint*) &flow->dst_ip,  sizeof(u_int32_t));
-    g_ptr_array_add (mutations, mutation);
 
 
     // src_port  c=xx
@@ -1989,20 +1975,24 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
     // src_name
+    snprintf(text[c], textSize, "%s", flow->src_name);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
     g_byte_array_append (mutation->column,(guint*)  "flow:src_name", 13);
-    g_byte_array_append (mutation->value ,(guint**) flow->src_name,  strlen(flow->src_name));
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
+    c++;
 
     // dst_name
+    snprintf(text[c], textSize, "%s", flow->dst_name);
     mutation = g_object_new (TYPE_MUTATION, NULL);
     mutation->column = g_byte_array_new ();
     mutation->value  = g_byte_array_new ();
     g_byte_array_append (mutation->column,(guint*)  "flow:dst_name", 13);
-    g_byte_array_append (mutation->value ,(guint**) flow->dst_name,  strlen(flow->dst_name));
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
+    c++;
 
     // bytes  c=7
     snprintf(text[c], textSize, "%ld", flow->bytes);
@@ -3684,11 +3674,12 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
         // http.url
         if(flow->ndpi_flow->http.url != NULL)
         {
+            snprintf(text[c], textSize, "%s", flow->ndpi_flow->http.url);
             mutation = g_object_new (TYPE_MUTATION, NULL);
             mutation->column = g_byte_array_new ();
             mutation->value  = g_byte_array_new ();
             g_byte_array_append (mutation->column,(guint*) "flow:http_url", 13);
-            g_byte_array_append (mutation->value ,(guint**) flow->ndpi_flow->http.url,  strlen(flow->ndpi_flow->http.url));
+            g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
             g_ptr_array_add (mutations, mutation);
             c++;
         }
@@ -3696,11 +3687,12 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
         // http.content_type
         if(flow->ndpi_flow->http.content_type != NULL)
         {
+            snprintf(text[c], textSize, "%s", flow->ndpi_flow->http.content_type);
             mutation = g_object_new (TYPE_MUTATION, NULL);
             mutation->column = g_byte_array_new ();
             mutation->value  = g_byte_array_new ();
             g_byte_array_append (mutation->column,(guint*) "flow:http_content_type", 22);
-            g_byte_array_append (mutation->value ,(guint**) flow->ndpi_flow->http.content_type,  strlen(flow->ndpi_flow->http.content_type));
+            g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
             g_ptr_array_add (mutations, mutation);
             c++;
         }
@@ -3737,11 +3729,12 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
 
         // http.response_status_code
         if(flow->ndpi_flow->http.response_status_code != NULL) {
+            snprintf(text[c], textSize, "%s", flow->ndpi_flow->http.response_status_code);
             mutation = g_object_new (TYPE_MUTATION, NULL);
             mutation->column = g_byte_array_new ();
             mutation->value  = g_byte_array_new ();
             g_byte_array_append (mutation->column,(guint*) "flow:http_response_status_code", 30);
-            g_byte_array_append (mutation->value ,(guint**) flow->ndpi_flow->http.response_status_code,3);
+            g_byte_array_append (mutation->value ,(guint**) text[c],3);
             g_ptr_array_add (mutations, mutation);
             c++;
         }
