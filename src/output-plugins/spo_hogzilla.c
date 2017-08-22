@@ -45,13 +45,12 @@
  */
 
 
-//#define ALARMS_RUN                      30 /* 30secs */
 #define HOGZILLA_MAX_NDPI_FLOWS         500000
 #define HOGZILLA_MAX_NDPI_PKT_PER_FLOW  500
 #define HOGZILLA_MAX_IDLE_TIME          600000 /* 1000=1sec */
-#define IDLE_SCAN_PERIOD                1000   /* 1000=1sec */
-#define NUM_ROOTS                 512
-//#define NUM_ROOTS                       1
+//#define IDLE_SCAN_PERIOD                1000   /* 1000=1sec */
+#define IDLE_SCAN_PERIOD                10     /* 1000=1sec, 10 is set on original */
+#define NUM_ROOTS                       512
 #define MAX_EXTRA_PACKETS_TO_CHECK      7
 #define TICK_RESOLUTION                 1000
 #define GTP_U_V1_PORT                   2152
@@ -744,7 +743,7 @@ void HogzillaSaveFlows() {
             rowMutation = g_object_new (TYPE_BATCH_MUTATION, NULL);
 
             rowMutation->row = g_byte_array_new ();
-            sprintf(str, "%lld.%lld", flow->first_seen,flow->src_ip) ;
+            snprintf(str,100, "%lld.%lld", flow->first_seen,flow->src_ip) ;
             g_byte_array_append (rowMutation->row,(guint*) str,  strlen(str));
 
             rowMutation->mutations  = g_ptr_array_new ();
@@ -849,7 +848,7 @@ void HogzillaSaveFlow(struct ndpi_flow_info *flow) {
     Hogzilla_mutations(flow,mutations);
 
     //FUTURE: HZ: find a better flow ID
-    sprintf(str, "%lld.%lld", flow->first_seen,flow->src_ip) ;
+    snprintf(str,100, "%lld.%lld", flow->first_seen,flow->src_ip) ;
     Text * key ;
     key = g_byte_array_new ();
     g_byte_array_append (key,(guint*) str,  strlen(str));
@@ -3480,14 +3479,14 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
         char psizename[30];
         char hsizename[30];
         char directionname[25];
-        sprintf(itime, "%d", flow->inter_time[i]);
-        sprintf(psize, "%d", flow->packet_pay_size[i]);
-        sprintf(hsize, "%d", flow->packet_header_size[i]);
-        sprintf(direction, "%d", flow->direction[i]);
-        sprintf(itimename, "flow:inter_time-%d", i);
-        sprintf(psizename, "flow:packet_pay_size-%d", i);
-        sprintf(hsizename, "flow:packet_header_size-%d", i);
-        sprintf(directionname, "flow:packet_direction-%d", i);
+        snprintf(itime, 10, "%d", flow->inter_time[i]);
+        snprintf(psize, 10, "%d", flow->packet_pay_size[i]);
+        snprintf(hsize, 10, "%d", flow->packet_header_size[i]);
+        snprintf(direction, 10, "%d", flow->direction[i]);
+        snprintf(itimename, 25, "flow:inter_time-%d", i);
+        snprintf(psizename, 30, "flow:packet_pay_size-%d", i);
+        snprintf(hsizename, 30, "flow:packet_header_size-%d", i);
+        snprintf(directionname, 25, "flow:packet_direction-%d", i);
 
         mutation = g_object_new (TYPE_MUTATION, NULL);
         mutation->column = g_byte_array_new ();
