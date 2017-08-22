@@ -50,8 +50,8 @@
 #define HOGZILLA_MAX_NDPI_PKT_PER_FLOW  500
 #define HOGZILLA_MAX_IDLE_TIME          600000 /* 1000=1sec */
 #define IDLE_SCAN_PERIOD                1000   /* 1000=1sec */
-//#define NUM_ROOTS                 512
-#define NUM_ROOTS                       1
+#define NUM_ROOTS                 512
+//#define NUM_ROOTS                       1
 #define MAX_EXTRA_PACKETS_TO_CHECK      7
 #define TICK_RESOLUTION                 1000
 #define GTP_U_V1_PORT                   2152
