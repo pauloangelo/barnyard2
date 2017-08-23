@@ -151,7 +151,7 @@ typedef struct ndpi_flow_info {
     /* control or not useful vars */
     u_int32_t hashval;
     u_int8_t ip_version;
-    int in_idle;
+    u_int8_t in_idle;
     u_int8_t saved;
     u_int64_t last_seen;
     u_int8_t  detection_completed,  check_extra_packets;
@@ -379,7 +379,6 @@ typedef struct ndpi_flow_info {
    /* label information, from misuse IDS */
     Unified2EventCommon *event;
 
-    u_int8_t not_used;
 
 } ndpi_flow_t;
 
@@ -416,7 +415,7 @@ Text * table ;
 
 
 void *HzAlloc(size_t size) {
-    void *mem = SnortAlloc(size);
+    void *mem = SnortAlloc(size+1);
     return mem;
 }
 
