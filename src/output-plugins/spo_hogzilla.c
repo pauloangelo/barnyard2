@@ -1216,6 +1216,9 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
 
     flow->flow_duration = time - flow->first_seen;
 
+    // TODO: DEBUG
+    return ;
+
     variation_comput(&flow->payload_size_variation_expected,&flow->payload_size_variation,(u_int32_t)payload_len);
 
     if(proto == IPPROTO_TCP){
@@ -1226,26 +1229,6 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
         flow->packets_psh += tcph->psh;
         flow->packets_urg += tcph->urg;
         flow->tcp_retransmissions += ndpi_flow->packet.tcp_retransmission;
-
-        /* Optional TCP fields */
-        // Not running, infinity loop.
-//        opt = tcph+sizeof(struct ndpi_tcphdr);
-//        while( *opt != 0 && opt <= (tcph + 4*tcph->doff)) {
-//            tcp_option_t* _opt = (tcp_option_t*)opt;
-//            if( _opt->kind == 1 /* NOP */ ) {
-//                ++opt;  // NOP is one byte;
-//                continue;
-//            }
-//            if( _opt->kind == 2 /* MSS 32bits*/ ) {
-//                mss = ntohs((uint16_t)*(opt + sizeof(opt))); // Shouldn't it be 32bits?
-//            }
-//            if( _opt->kind == 3 /* Window scale 24bits */ ) {
-//                wscale = (uint8_t)*(opt + sizeof(opt));
-//            }
-//            opt += _opt->size;
-//        }
-//
-//        variation_comput(&flow->window_scaling_variation_expected,&flow->window_scaling_variation,(u_int32_t)wscale);
 
         /*
          * HTTP times
