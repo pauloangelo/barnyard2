@@ -1185,16 +1185,17 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
     uint16_t mss;
     uint8_t wscale=0;
 
+    // TODO: DEBUG
+    return ;
 
+    struct ndpi_flow_struct *ndpi_flow = flow->ndpi_flow;
 
     if(flow->packets==0)
         flow->last_seen = time;
 
-    // TODO: DEBUG
-    return ;
 
 
-    struct ndpi_flow_struct *ndpi_flow = flow->ndpi_flow;
+
 
 
     if(flow->packets<HOGZILLA_MAX_NDPI_PKT_PER_FLOW) {
