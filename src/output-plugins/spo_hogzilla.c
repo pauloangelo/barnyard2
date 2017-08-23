@@ -46,7 +46,7 @@
 
 
 #define HOGZILLA_MAX_NDPI_FLOWS         500000
-#define HOGZILLA_MAX_NDPI_PKT_PER_FLOW  200
+#define HOGZILLA_MAX_NDPI_PKT_PER_FLOW  500
 #define HOGZILLA_MAX_IDLE_TIME          600000 /* 1000=1sec */
 //#define IDLE_SCAN_PERIOD                1000   /* 1000=1sec */
 #define IDLE_SCAN_PERIOD                10     /* 1000=1sec, 10 is set on original */
@@ -56,7 +56,7 @@
 #define GTP_U_V1_PORT                   2152
 #define IDLE_SCAN_BUDGET                4096
 #define DNS_FLAGS_MASK                  0x8000
-#define MAX_CONTACTS                    50
+#define MAX_CONTACTS                    100
 #define CONTACT_NEGLIGIBLE_PAYLOAD      10 /* bytes */
 #define CONTACT_MIN_INTERTIME           1000 /* 1seconds */
 
