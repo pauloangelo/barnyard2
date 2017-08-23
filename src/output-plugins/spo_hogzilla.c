@@ -1062,16 +1062,16 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
             //PA NEWFLOW
             newflow->event=NULL;
             //AP
-
-            if(version == IPVERSION) {
-                inet_ntop(AF_INET, &newflow->src_ip, newflow->src_name, sizeof(newflow->src_name));
-                inet_ntop(AF_INET, &newflow->dst_ip, newflow->dst_name, sizeof(newflow->dst_name));
-            } else {
-                inet_ntop(AF_INET6, &iph6->ip6_src, newflow->src_name, sizeof(newflow->src_name));
-                inet_ntop(AF_INET6, &iph6->ip6_dst, newflow->dst_name, sizeof(newflow->dst_name));
-                /* For consistency across platforms replace :0: with :: */
-                patchIPv6Address(newflow->src_name), patchIPv6Address(newflow->dst_name);
-            }
+            // TODO DEBUG
+//            if(version == IPVERSION) {
+//                inet_ntop(AF_INET, &newflow->src_ip, newflow->src_name, sizeof(newflow->src_name));
+//                inet_ntop(AF_INET, &newflow->dst_ip, newflow->dst_name, sizeof(newflow->dst_name));
+//            } else {
+//                inet_ntop(AF_INET6, &iph6->ip6_src, newflow->src_name, sizeof(newflow->src_name));
+//                inet_ntop(AF_INET6, &iph6->ip6_dst, newflow->dst_name, sizeof(newflow->dst_name));
+//                /* For consistency across platforms replace :0: with :: */
+//                patchIPv6Address(newflow->src_name), patchIPv6Address(newflow->dst_name);
+//            }
 
             if((newflow->ndpi_flow = HzAlloc(SIZEOF_FLOW_STRUCT)) == NULL) {
                 LogMessage("ERROR => [Hogzilla] %s(2): not enough memory\n", __FUNCTION__);
@@ -1800,7 +1800,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time1,
 
     // TODO: DEBUG
     if(flow->packets==0)
-        (*flow).last_seen = time1;
+        flow->last_seen = time1;
 
     updateFlowFeatures(flow,time1,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
