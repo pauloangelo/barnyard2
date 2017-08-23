@@ -1186,11 +1186,13 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
     uint8_t wscale=0;
 
     // TODO: DEBUG
-    return ;
+
 
     struct ndpi_flow_struct *ndpi_flow = flow->ndpi_flow;
 
     if(flow->packets==0)
+        return ;
+    return ;
         flow->last_seen = time;
 
 
