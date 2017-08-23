@@ -149,14 +149,14 @@ typedef struct {
 // flow tracking
 typedef struct ndpi_flow_info {
     /* control or not useful vars */
+    u_int64_t last_seen;
     u_int32_t hashval;
     u_int8_t ip_version;
     u_int8_t in_idle;
     u_int8_t saved;
-    u_int64_t last_seen;
     u_int8_t  detection_completed,  check_extra_packets;
-    u_int16_t vlan_id;
     u_int8_t fin_stage; /*1: 1st FIN, 2: FIN reply */
+    u_int16_t vlan_id;
     void *src_id, *dst_id;
     u_int64_t request_abs_time; /* timestamp used to compute response time for services */
     u_int64_t C_last_time; /* timestamp a contact was noticed */
