@@ -480,7 +480,7 @@ void scan_idle_flows(){
             /* scan for idle flows */
             ndpi_twalk(ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_idle_scan_walker,NULL);
 
-            HogzillaSaveFlows();
+            //HogzillaSaveFlows();
 
             /* remove idle flows (unfortunately we cannot do this inline) */
             while (ndpi_info.num_idle_flows > 0){
