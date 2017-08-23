@@ -1186,8 +1186,6 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
     uint8_t wscale=0;
     struct ndpi_flow_struct *ndpi_flow = flow->ndpi_flow;
 
-    // TODO: DEBUG
-    return ;
 
     if(flow->packets==0)
         flow->last_seen = time;
@@ -1199,6 +1197,12 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
         flow->packet_header_size[flow->packets]=ipsize-payload_len;
         flow->direction[flow->packets]=src_to_dst_direction;
     }
+
+
+    // TODO: DEBUG
+    return ;
+
+
     flow->packets++, flow->bytes += rawsize;
     flow->last_seen = time;
 
@@ -1219,6 +1223,8 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
 
     flow->flow_duration = time - flow->first_seen;
 
+    // TODO: DEBUG
+    return ;
 
     variation_comput(&flow->payload_size_variation_expected,&flow->payload_size_variation,(u_int32_t)payload_len);
 
