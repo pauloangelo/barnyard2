@@ -1190,7 +1190,8 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
     struct ndpi_flow_struct *ndpi_flow = flow->ndpi_flow;
 
     if(flow->packets==0) {
-        flow->last_seen = 1*time1;
+        flow->last_seen = 1503215322763;
+        //flow->last_seen = time1;
     }
 
 
