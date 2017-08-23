@@ -1062,16 +1062,16 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
             //PA NEWFLOW
             newflow->event=NULL;
             //AP
-            // TODO DEBUG
-//            if(version == IPVERSION) {
-//                inet_ntop(AF_INET, &newflow->src_ip, newflow->src_name, sizeof(newflow->src_name));
-//                inet_ntop(AF_INET, &newflow->dst_ip, newflow->dst_name, sizeof(newflow->dst_name));
-//            } else {
-//                inet_ntop(AF_INET6, &iph6->ip6_src, newflow->src_name, sizeof(newflow->src_name));
-//                inet_ntop(AF_INET6, &iph6->ip6_dst, newflow->dst_name, sizeof(newflow->dst_name));
-//                /* For consistency across platforms replace :0: with :: */
-//                patchIPv6Address(newflow->src_name), patchIPv6Address(newflow->dst_name);
-//            }
+
+            if(version == IPVERSION) {
+                inet_ntop(AF_INET, &newflow->src_ip, newflow->src_name, sizeof(newflow->src_name));
+                inet_ntop(AF_INET, &newflow->dst_ip, newflow->dst_name, sizeof(newflow->dst_name));
+            } else {
+                inet_ntop(AF_INET6, &iph6->ip6_src, newflow->src_name, sizeof(newflow->src_name));
+                inet_ntop(AF_INET6, &iph6->ip6_dst, newflow->dst_name, sizeof(newflow->dst_name));
+                /* For consistency across platforms replace :0: with :: */
+                patchIPv6Address(newflow->src_name), patchIPv6Address(newflow->dst_name);
+            }
 
             if((newflow->ndpi_flow = HzAlloc(SIZEOF_FLOW_STRUCT)) == NULL) {
                 LogMessage("ERROR => [Hogzilla] %s(2): not enough memory\n", __FUNCTION__);
@@ -1190,16 +1190,8 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
     struct ndpi_flow_struct *ndpi_flow = flow->ndpi_flow;
 
     if(flow->packets==0) {
-        // TODO: DEBUG
-        //flow->last_seen = 1503215322763;
-        //flow->last_seen = time1;
+        flow->last_seen = time1;
     }
-
-
-
-    // TODO: DEBUG
-    return ;
-
 
     if(flow->packets<HOGZILLA_MAX_NDPI_PKT_PER_FLOW) {
         flow->arrival_time[flow->packets] = time1;
@@ -1208,8 +1200,6 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
         flow->packet_header_size[flow->packets]=ipsize-payload_len;
         flow->direction[flow->packets]=src_to_dst_direction;
     }
-
-
 
 
     flow->packets++, flow->bytes += rawsize;
@@ -1232,8 +1222,6 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
 
     flow->flow_duration = time1 - flow->first_seen;
 
-    // TODO: DEBUG
-    return ;
 
     variation_comput(&flow->payload_size_variation_expected,&flow->payload_size_variation,(u_int32_t)payload_len);
 
@@ -1802,7 +1790,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time1,
     if(flow->packets==0)
         flow->last_seen = time1;
 
-    updateFlowFeatures(flow,time1,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
+    //updateFlowFeatures(flow,time1,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
     // After FIN , save into HBase and remove from tree
     if(iph!=NULL && iph->protocol == IPPROTO_TCP && tcph!=NULL){
