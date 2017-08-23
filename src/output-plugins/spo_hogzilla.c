@@ -1191,6 +1191,9 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
 
     if(flow->packets==0) {
         //flow->last_seen = time;
+        if(time==NULL || time < 1500000000000 || time > 1603216650594){
+            raise(SIGINT);
+        }
         flow->last_seen = 1;
     }
 
