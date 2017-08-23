@@ -379,7 +379,7 @@ typedef struct ndpi_flow_info {
    /* label information, from misuse IDS */
     Unified2EventCommon *event;
 
-    u_int64_t not_used;
+    u_int8_t not_used;
 
 } ndpi_flow_t;
 
