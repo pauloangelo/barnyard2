@@ -480,8 +480,7 @@ void scan_idle_flows(){
             /* scan for idle flows */
             ndpi_twalk(ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_idle_scan_walker,NULL);
 
-            // TODO:  DEBUG
-            //HogzillaSaveFlows();
+            HogzillaSaveFlows();
 
             /* remove idle flows (unfortunately we cannot do this inline) */
             while (ndpi_info.num_idle_flows > 0){
@@ -491,7 +490,7 @@ void scan_idle_flows(){
                              &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx],
                              node_cmp);
 
-
+                // I need to do it twice to solve a bug somewhere.
                 ndpi_tdelete(ndpi_info.idle_flows[ndpi_info.num_idle_flows],
                              &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx],
                              node_cmp);
@@ -1197,8 +1196,6 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
     uint16_t mss;
     uint8_t wscale=0;
 
-
-
     struct ndpi_flow_struct *ndpi_flow = flow->ndpi_flow;
 
     if(flow->packets==0) {
@@ -1758,66 +1755,59 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time1,
       return(NULL);
     }
 
-    // TODO: DEBUG
-//    if(flow->detection_completed) {
-//        if(flow->check_extra_packets && ndpi_flow != NULL && ndpi_flow->check_extra_packets) {
-//            if(ndpi_flow->num_extra_packets_checked == 0 && ndpi_flow->max_extra_packets_to_check == 0) {
-//                /* Protocols can set this, but we set it here in case they didn't */
-//                ndpi_flow->max_extra_packets_to_check = MAX_EXTRA_PACKETS_TO_CHECK;
-//            }
-//            if(ndpi_flow->num_extra_packets_checked < ndpi_flow->max_extra_packets_to_check) {
-//                ndpi_process_extra_packet(ndpi_info.ndpi_struct, ndpi_flow,
-//                        iph ? (uint8_t *)iph : (uint8_t *)iph6,
-//                                ipsize, time1, src, dst);
-//                if (ndpi_flow->check_extra_packets == 0) {
-//                    flow->check_extra_packets = 0;
-//                    process_ndpi_collected_info(flow);
-//                }
-//            }
-//        }
-//
-//    }else{
-//
-//        flow->detected_protocol = ndpi_detection_process_packet(ndpi_info.ndpi_struct, ndpi_flow,
-//                iph ? (uint8_t *)iph : (uint8_t *)iph6,
-//                        ipsize, time1, src, dst);
-//
-//        if((flow->detected_protocol.app_protocol != NDPI_PROTOCOL_UNKNOWN)
-//                || ((proto == IPPROTO_UDP) && ((flow->src2dst_packets + flow->dst2src_packets) > 8))
-//                || ((proto == IPPROTO_TCP) && ((flow->src2dst_packets + flow->dst2src_packets) > 10))) {
-//            /* New protocol detected or give up */
-//            flow->detection_completed = 1;
-//            /* Check if we should keep checking extra packets */
-//            if (ndpi_flow->check_extra_packets)
-//                flow->check_extra_packets = 1;
-//
-//            if(flow->detected_protocol.app_protocol == NDPI_PROTOCOL_UNKNOWN)
-//                flow->detected_protocol = ndpi_detection_giveup(ndpi_info.ndpi_struct,flow->ndpi_flow);
-//
-//            process_ndpi_collected_info(flow);
-//        }
-//    }
+    if(flow->detection_completed) {
+        if(flow->check_extra_packets && ndpi_flow != NULL && ndpi_flow->check_extra_packets) {
+            if(ndpi_flow->num_extra_packets_checked == 0 && ndpi_flow->max_extra_packets_to_check == 0) {
+                /* Protocols can set this, but we set it here in case they didn't */
+                ndpi_flow->max_extra_packets_to_check = MAX_EXTRA_PACKETS_TO_CHECK;
+            }
+            if(ndpi_flow->num_extra_packets_checked < ndpi_flow->max_extra_packets_to_check) {
+                ndpi_process_extra_packet(ndpi_info.ndpi_struct, ndpi_flow,
+                        iph ? (uint8_t *)iph : (uint8_t *)iph6,
+                                ipsize, time1, src, dst);
+                if (ndpi_flow->check_extra_packets == 0) {
+                    flow->check_extra_packets = 0;
+                    process_ndpi_collected_info(flow);
+                }
+            }
+        }
 
-    // TODO: DEBUG
-    if(flow->packets==0)
-        flow->last_seen = time1;
+    }else{
 
-    //updateFlowFeatures(flow,time1,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
+        flow->detected_protocol = ndpi_detection_process_packet(ndpi_info.ndpi_struct, ndpi_flow,
+                iph ? (uint8_t *)iph : (uint8_t *)iph6,
+                        ipsize, time1, src, dst);
+
+        if((flow->detected_protocol.app_protocol != NDPI_PROTOCOL_UNKNOWN)
+                || ((proto == IPPROTO_UDP) && ((flow->src2dst_packets + flow->dst2src_packets) > 8))
+                || ((proto == IPPROTO_TCP) && ((flow->src2dst_packets + flow->dst2src_packets) > 10))) {
+            /* New protocol detected or give up */
+            flow->detection_completed = 1;
+            /* Check if we should keep checking extra packets */
+            if (ndpi_flow->check_extra_packets)
+                flow->check_extra_packets = 1;
+
+            if(flow->detected_protocol.app_protocol == NDPI_PROTOCOL_UNKNOWN)
+                flow->detected_protocol = ndpi_detection_giveup(ndpi_info.ndpi_struct,flow->ndpi_flow);
+
+            process_ndpi_collected_info(flow);
+        }
+    }
+
+    updateFlowFeatures(flow,time1,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
     // After FIN , save into HBase and remove from tree
     if(iph!=NULL && iph->protocol == IPPROTO_TCP && tcph!=NULL){
         if(tcph->fin == 1) flow->fin_stage++;
 
         if(flow->fin_stage==2 && tcph->fin == 0 && tcph->ack == 1){ /* Connection finished! */
-            // TODO: DEBUG
-            //HogzillaSaveFlow(flow);
+            HogzillaSaveFlow(flow);
         }
     }
 
     // 500 packets, save it into HBASE
     if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW) {
-       //TODO: DEBUG
-        //HogzillaSaveFlow(flow); /* save into  HBase */
+        HogzillaSaveFlow(flow); /* save into  HBase */
     }
 
     scan_idle_flows();
