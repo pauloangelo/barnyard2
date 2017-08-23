@@ -480,6 +480,7 @@ void scan_idle_flows(){
             /* scan for idle flows */
             ndpi_twalk(ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_idle_scan_walker,NULL);
 
+            // TODO:  DEBUG
             //HogzillaSaveFlows();
 
             /* remove idle flows (unfortunately we cannot do this inline) */
@@ -1801,7 +1802,8 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
         }
     }
 
-    updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
+    // TODO: DEBUG
+   // updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
     // After FIN , save into HBase and remove from tree
     if(iph!=NULL && iph->protocol == IPPROTO_TCP && tcph!=NULL){
@@ -1814,7 +1816,8 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
 
     // 500 packets, save it into HBASE
     if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW) {
-        HogzillaSaveFlow(flow); /* save into  HBase */
+       //TODO: DEBUG
+        //HogzillaSaveFlow(flow); /* save into  HBase */
     }
 
     scan_idle_flows();
