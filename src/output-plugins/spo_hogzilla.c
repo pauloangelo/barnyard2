@@ -1190,11 +1190,7 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
     struct ndpi_flow_struct *ndpi_flow = flow->ndpi_flow;
 
     if(flow->packets==0) {
-        //flow->last_seen = time;
-        if(time==NULL || time < 1500000000000 || time > 1603216650594){
-            raise(SIGINT);
-        }
-        flow->last_seen = 1;
+        flow->last_seen = time;
     }
 
 
@@ -1811,7 +1807,8 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
         if(tcph->fin == 1) flow->fin_stage++;
 
         if(flow->fin_stage==2 && tcph->fin == 0 && tcph->ack == 1){ /* Connection finished! */
-            HogzillaSaveFlow(flow);
+            // TODO: DEBUG
+            //HogzillaSaveFlow(flow);
         }
     }
 
