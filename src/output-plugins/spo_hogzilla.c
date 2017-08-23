@@ -1537,7 +1537,7 @@ static struct ndpi_flow_info *packet_processing_by_pcap(const struct pcap_pkthdr
             header->ts.tv_usec / (1000000 / TICK_RESOLUTION);
 
     if(ndpi_info.last_time > time) { /* safety check */
-        // printf("\nWARNING: timestamp bug in the pcap file (ts delta: %llu, repairing)\n", ndpi_info.last_time - time);
+        printf("\nWARNING: timestamp bug in the pcap file (ts delta: %llu, repairing)\n", ndpi_info.last_time - time);
         time = ndpi_info.last_time;
     }
     ndpi_info.last_time = time;
