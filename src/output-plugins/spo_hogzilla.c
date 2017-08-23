@@ -1522,6 +1522,7 @@ static void updateFlowCountsBeforeInsert(struct ndpi_flow_info *flow){
 /* ***************************************************** */
 
 static struct ndpi_flow_info *packet_processing_by_pcap(const struct pcap_pkthdr *header, const u_char *packet) {
+
     const struct ndpi_ethhdr *ethernet;
     struct ndpi_iphdr *iph;
     struct ndpi_ipv6hdr *iph6;
@@ -1532,12 +1533,11 @@ static struct ndpi_flow_info *packet_processing_by_pcap(const struct pcap_pkthdr
 
     // printf("[ndpiReader] pcap_packet_callback : [%u.%u.%u.%u.%u -> %u.%u.%u.%u.%u]\n", ethernet->h_dest[1],ethernet->h_dest[2],ethernet->h_dest[3],ethernet->h_dest[4],ethernet->h_dest[5],ethernet->h_source[1],ethernet->h_source[2],ethernet->h_source[3],ethernet->h_source[4],ethernet->h_source[5]);
 
-
     time = ((uint64_t) header->ts.tv_sec) * TICK_RESOLUTION +
             header->ts.tv_usec / (1000000 / TICK_RESOLUTION);
 
     if(ndpi_info.last_time > time) { /* safety check */
-        printf("\nWARNING: timestamp bug in the pcap file (ts delta: %llu, repairing)\n", ndpi_info.last_time - time);
+        //printf("\nWARNING: timestamp bug in the pcap file (ts delta: %llu, repairing)\n", ndpi_info.last_time - time);
         time = ndpi_info.last_time;
     }
     ndpi_info.last_time = time;
@@ -1798,7 +1798,8 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time1,
 
     // TODO: DEBUG
     if(flow->packets==0)
-        flow->last_seen = time1;
+        flow->last_seen = ndpi_info.last_time;
+
     updateFlowFeatures(flow,time1,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
     // After FIN , save into HBase and remove from tree
