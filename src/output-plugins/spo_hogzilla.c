@@ -149,7 +149,6 @@ typedef struct {
 // flow tracking
 typedef struct ndpi_flow_info {
     /* control or not useful vars */
-    u_int64_t last_seen;
     u_int32_t hashval;
     u_int8_t ip_version;
     u_int8_t in_idle;
@@ -161,6 +160,7 @@ typedef struct ndpi_flow_info {
     u_int64_t request_abs_time; /* timestamp used to compute response time for services */
     u_int64_t C_last_time; /* timestamp a contact was noticed */
     u_int64_t first_seen;
+    u_int64_t last_seen;
 
 //    Not using for now!
 //    /* context and specific information */
@@ -1190,6 +1190,7 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
     struct ndpi_flow_struct *ndpi_flow = flow->ndpi_flow;
 
     if(flow->packets==0) {
+        // TODO: DEBUG
         //flow->last_seen = 1503215322763;
         //flow->last_seen = time1;
     }
