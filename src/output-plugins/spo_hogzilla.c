@@ -50,7 +50,7 @@
 #define HOGZILLA_MAX_IDLE_TIME          600000 /* 1000=1sec */
 //#define IDLE_SCAN_PERIOD                1000   /* 1000=1sec */
 #define IDLE_SCAN_PERIOD                10     /* 1000=1sec, 10 is set on original */
-#define NUM_ROOTS                       1
+#define NUM_ROOTS                       1024
 #define MAX_EXTRA_PACKETS_TO_CHECK      7
 #define TICK_RESOLUTION                 1000
 #define GTP_U_V1_PORT                   2152
@@ -490,6 +490,12 @@ void scan_idle_flows(){
                 ndpi_tdelete(ndpi_info.idle_flows[ndpi_info.num_idle_flows],
                              &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx],
                              node_cmp);
+
+
+                ndpi_tdelete(ndpi_info.idle_flows[ndpi_info.num_idle_flows],
+                             &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx],
+                             node_cmp);
+
 
                 if(ndpi_info.idle_flows[ndpi_info.num_idle_flows]!=NULL){
 
