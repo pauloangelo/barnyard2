@@ -817,6 +817,7 @@ static void printFlow(struct ndpi_flow_info *flow) {
 
     if(flow->vlan_id > 0) fprintf(out, "[VLAN: %u]", flow->vlan_id);
 
+
     if(flow->detected_protocol.master_protocol) {
       char buf[64];
 
@@ -1796,6 +1797,9 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time1,
             process_ndpi_collected_info(flow);
         }
     }
+
+
+    printFlow(flow);
 
     updateFlowFeatures(flow,time1,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
