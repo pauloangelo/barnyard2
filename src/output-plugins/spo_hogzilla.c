@@ -485,11 +485,17 @@ void scan_idle_flows(){
 
             /* remove idle flows (unfortunately we cannot do this inline) */
             while (ndpi_info.num_idle_flows > 0){
-                ndpi_tdelete(ndpi_info.idle_flows[--ndpi_info.num_idle_flows], &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_cmp);
+                ndpi_info.num_idle_flows--;
+
+                ndpi_tdelete(ndpi_info.idle_flows[ndpi_info.num_idle_flows],
+                             &ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx],
+                             node_cmp);
+
                 if(ndpi_info.idle_flows[ndpi_info.num_idle_flows]!=NULL){
 
                     flow = ndpi_info.idle_flows[ndpi_info.num_idle_flows];
                     if(flow && flow->in_idle==1) {
+                        flow->in_idle=0;
                         free_ndpi_flow(flow);
                         free(flow);
                     }
