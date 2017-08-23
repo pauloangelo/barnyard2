@@ -1167,7 +1167,7 @@ void variation_comput(u_int32_t *expected,u_int32_t * variationSum, u_int32_t cu
 }
 /* ***************************************************** */
 static void updateFlowFeatures(struct ndpi_flow_info *flow,
-        const u_int64_t time,
+        u_int64_t time1,
         u_int16_t vlan_id,
         const struct ndpi_iphdr *iph,
         struct ndpi_ipv6hdr *iph6,
@@ -1190,7 +1190,7 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
     struct ndpi_flow_struct *ndpi_flow = flow->ndpi_flow;
 
     if(flow->packets==0) {
-        flow->last_seen = time;
+        flow->last_seen = time1;
     }
 
 
@@ -1200,8 +1200,8 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
 
 
     if(flow->packets<HOGZILLA_MAX_NDPI_PKT_PER_FLOW) {
-        flow->arrival_time[flow->packets] = time;
-        flow->inter_time[flow->packets] = time - flow->last_seen;
+        flow->arrival_time[flow->packets] = time1;
+        flow->inter_time[flow->packets] = time1 - flow->last_seen;
         flow->packet_pay_size[flow->packets]=payload_len;
         flow->packet_header_size[flow->packets]=ipsize-payload_len;
         flow->direction[flow->packets]=src_to_dst_direction;
@@ -1211,13 +1211,13 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
 
 
     flow->packets++, flow->bytes += rawsize;
-    flow->last_seen = time;
+    flow->last_seen = time1;
 
     flow->payload_bytes += payload_len;
     if(flow->packets==1)
     {
         flow->payload_bytes_first = payload_len;
-        flow->first_seen=time;
+        flow->first_seen=time1;
     }
 
     if(src_to_dst_direction)
@@ -1228,7 +1228,7 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
     if(payload_len==0)
         flow->packets_without_payload++;
 
-    flow->flow_duration = time - flow->first_seen;
+    flow->flow_duration = time1 - flow->first_seen;
 
     // TODO: DEBUG
     return ;
@@ -1250,10 +1250,10 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
         if(ndpi_flow->http_detected){
             if(ndpi_flow->l4.tcp.http_stage==1 && flow->request_abs_time == 0){
              /* HTTP Request */
-                flow->request_abs_time=time;
+                flow->request_abs_time=time1;
             }else if(ndpi_flow->packet.http_response.len >0 && flow->request_abs_time > 0 && flow->response_rel_time==0){
              /* HTTP Response */
-                flow->response_rel_time=time-flow->request_abs_time;
+                flow->response_rel_time=time1-flow->request_abs_time;
             }
         }
     }else if(proto == IPPROTO_UDP &&
@@ -1281,26 +1281,26 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
 
         if(is_query==1 && flow->request_abs_time == 0){
             /* DNS Request */
-            flow->request_abs_time=time;
+            flow->request_abs_time=time1;
         }else if(is_query==0 && flow->request_abs_time > 0 && flow->response_rel_time==0){
             /* DNS Response */
-            flow->response_rel_time=time-flow->request_abs_time;
+            flow->response_rel_time=time1-flow->request_abs_time;
         }
     }
 
     /* Count contacts */
     if(payload_len >= CONTACT_NEGLIGIBLE_PAYLOAD && flow->C_number_of_contacts <= MAX_CONTACTS){ /* in contact */
 
-        if(time - flow->C_last_time >= CONTACT_MIN_INTERTIME) { /* new contact */
+        if(time1 - flow->C_last_time >= CONTACT_MIN_INTERTIME) { /* new contact */
             flow->C_number_of_contacts++;
 
             /* Update last contact features */
             if(flow->C_number_of_contacts>=2){
-                flow->C_idletime[flow->C_number_of_contacts-2]=time - flow->C_last_time;
+                flow->C_idletime[flow->C_number_of_contacts-2]=time1 - flow->C_last_time;
             }
 
             if(flow->C_number_of_contacts<= MAX_CONTACTS)
-                flow->C_start_time[flow->C_number_of_contacts-1] = time;
+                flow->C_start_time[flow->C_number_of_contacts-1] = time1;
         }
 
         if(flow->C_number_of_contacts<= MAX_CONTACTS) {
@@ -1325,10 +1325,10 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
                 flow->C_tcp_retransmissions[flow->C_number_of_contacts-1] += ndpi_flow->packet.tcp_retransmission;
             }
             /* duration of current contact */
-            flow->C_duration[flow->C_number_of_contacts-1]=time-flow->C_start_time[flow->C_number_of_contacts-1];
+            flow->C_duration[flow->C_number_of_contacts-1]=time1-flow->C_start_time[flow->C_number_of_contacts-1];
 
             /* last valid contact */
-            flow->C_last_time = time;
+            flow->C_last_time = time1;
         }
     }
 
@@ -1716,7 +1716,7 @@ void process_ndpi_collected_info(struct ndpi_flow_info *flow) {
 
 }
 /* ***************************************************** */
-static struct ndpi_flow_info *packet_processing( const u_int64_t time,
+static struct ndpi_flow_info *packet_processing( const u_int64_t time1,
         u_int16_t vlan_id,
         const struct ndpi_iphdr *iph,
         struct ndpi_ipv6hdr *iph6,
@@ -1752,10 +1752,6 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
 
     if(flow != NULL) {
         ndpi_flow = flow->ndpi_flow;
-        if(ndpi_flow==NULL){
-            printf("######################################################################\n");
-            printFlow(flow);
-        }
     } else { // flow is NULL
       return(NULL);
     }
@@ -1769,7 +1765,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
             if(ndpi_flow->num_extra_packets_checked < ndpi_flow->max_extra_packets_to_check) {
                 ndpi_process_extra_packet(ndpi_info.ndpi_struct, ndpi_flow,
                         iph ? (uint8_t *)iph : (uint8_t *)iph6,
-                                ipsize, time, src, dst);
+                                ipsize, time1, src, dst);
                 if (ndpi_flow->check_extra_packets == 0) {
                     flow->check_extra_packets = 0;
                     process_ndpi_collected_info(flow);
@@ -1781,7 +1777,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
 
         flow->detected_protocol = ndpi_detection_process_packet(ndpi_info.ndpi_struct, ndpi_flow,
                 iph ? (uint8_t *)iph : (uint8_t *)iph6,
-                        ipsize, time, src, dst);
+                        ipsize, time1, src, dst);
 
         if((flow->detected_protocol.app_protocol != NDPI_PROTOCOL_UNKNOWN)
                 || ((proto == IPPROTO_UDP) && ((flow->src2dst_packets + flow->dst2src_packets) > 8))
@@ -1800,7 +1796,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time,
     }
 
     // TODO: DEBUG
-    updateFlowFeatures(flow,time,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
+    updateFlowFeatures(flow,time1,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
     // After FIN , save into HBase and remove from tree
     if(iph!=NULL && iph->protocol == IPPROTO_TCP && tcph!=NULL){
