@@ -1799,7 +1799,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time1,
 
     // TODO: DEBUG
     if(flow->packets==0)
-        flow->last_seen = ndpi_info.last_time;
+        (*flow).last_seen = time1;
 
     updateFlowFeatures(flow,time1,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
