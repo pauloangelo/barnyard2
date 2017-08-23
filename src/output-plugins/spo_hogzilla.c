@@ -1190,7 +1190,7 @@ static void updateFlowFeatures(struct ndpi_flow_info *flow,
     struct ndpi_flow_struct *ndpi_flow = flow->ndpi_flow;
 
     if(flow->packets==0) {
-        flow->last_seen = 1503215322763;
+        //flow->last_seen = 1503215322763;
         //flow->last_seen = time1;
     }
 
@@ -1797,6 +1797,8 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time1,
     }
 
     // TODO: DEBUG
+    if(flow->packets==0)
+        flow->last_seen = time1;
     updateFlowFeatures(flow,time1,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
     // After FIN , save into HBase and remove from tree
