@@ -59,6 +59,9 @@
 #define MAX_CONTACTS                    100
 #define CONTACT_NEGLIGIBLE_PAYLOAD      10 /* bytes */
 #define CONTACT_MIN_INTERTIME           1000 /* 1seconds */
+// DEBUG
+#define NUM_ROOTS                       1
+#define HOGZILLA_MAX_IDLE_TIME          1000 /* 1000=1sec */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
