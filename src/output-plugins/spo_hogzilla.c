@@ -152,10 +152,10 @@ typedef struct ndpi_flow_info {
     u_int32_t hashval;
     u_int8_t ip_version;
     int in_idle;
+    u_int8_t saved;
     u_int64_t last_seen;
     u_int8_t  detection_completed,  check_extra_packets;
     u_int16_t vlan_id;
-    u_int8_t saved;
     u_int8_t fin_stage; /*1: 1st FIN, 2: FIN reply */
     void *src_id, *dst_id;
     u_int64_t request_abs_time; /* timestamp used to compute response time for services */
@@ -379,6 +379,7 @@ typedef struct ndpi_flow_info {
    /* label information, from misuse IDS */
     Unified2EventCommon *event;
 
+    u_int64_t not_used;
 
 } ndpi_flow_t;
 
