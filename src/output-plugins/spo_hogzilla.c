@@ -408,7 +408,7 @@ HogzillaData *hogzilla_ptr;
 HogzillaHBase *hbase;
 struct reader_hogzilla ndpi_info;
 
-static u_int8_t undetected_flows_deleted = 0;
+//static u_int8_t undetected_flows_deletedd = 0; // TODO NOT USED
 static u_int16_t decode_tunnels = 0;
 #define SIZEOF_ID_STRUCT (sizeof(struct ndpi_id_struct))
 #define SIZEOF_FLOW_STRUCT (sizeof(struct ndpi_flow_struct))
@@ -915,10 +915,10 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
         if(flow->last_seen + HOGZILLA_MAX_IDLE_TIME < ndpi_info.last_time) {
 
             /* update stats */
-            node_proto_guess_walker(node, which, depth, user_data);
-
-            if((flow->detected_protocol.master_protocol == NDPI_PROTOCOL_UNKNOWN) && !undetected_flows_deleted)
-                undetected_flows_deleted = 1;
+            // TODO DEBUG
+          //  node_proto_guess_walker(node, which, depth, user_data);
+//            if((flow->detected_protocol.master_protocol == NDPI_PROTOCOL_UNKNOWN) && !undetected_flows_deleted)
+//                undetected_flows_deleted = 1;
 
             /* adding to a queue (we can't delete it from the tree inline ) */
             ndpi_info.idle_flows[ndpi_info.num_idle_flows++] = flow;
