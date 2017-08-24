@@ -1868,6 +1868,7 @@ struct HogzillaHBase *connectHBase() {
 
 void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
 
+    printf("Going to save now\n");
 printFlow(flow);
 
     int c=0, textSize=50;
