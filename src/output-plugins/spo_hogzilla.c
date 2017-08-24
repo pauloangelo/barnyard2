@@ -1755,9 +1755,6 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time1,
         }
     }
 
-
-    printFlow(flow);
-
     updateFlowFeatures(flow,time1,vlan_id,iph,iph6,ip_offset,ipsize,rawsize,src_to_dst_direction,tcph, udph,proto,payload,payload_len);
 
     // After FIN , save into HBase and remove from tree
@@ -1824,9 +1821,6 @@ struct HogzillaHBase *connectHBase() {
 
 
 void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
-
-    printf("Going to save now\n");
-printFlow(flow);
 
     int c=0, textSize=50;
     char text[200][textSize+1];
