@@ -48,7 +48,6 @@
 #define HOGZILLA_MAX_NDPI_FLOWS         500000
 #define HOGZILLA_MAX_NDPI_PKT_PER_FLOW  500
 #define HOGZILLA_MAX_IDLE_TIME          600000 /* 1000=1sec */
-//#define IDLE_SCAN_PERIOD                1000   /* 1000=1sec */
 #define IDLE_SCAN_PERIOD                10     /* 1000=1sec, 10 is set on original */
 #define NUM_ROOTS                       1024
 #define MAX_EXTRA_PACKETS_TO_CHECK      7
@@ -60,8 +59,8 @@
 #define CONTACT_NEGLIGIBLE_PAYLOAD      10 /* bytes */
 #define CONTACT_MIN_INTERTIME           1000 /* 1seconds */
 // DEBUG
-#define NUM_ROOTS                       1
-#define HOGZILLA_MAX_IDLE_TIME          1000 /* 1000=1sec */
+//#define NUM_ROOTS                       1
+//#define HOGZILLA_MAX_IDLE_TIME          1000 /* 1000=1sec */
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -401,14 +400,11 @@ int node_cmp(const void *, const void *);
 static void free_ndpi_flow(struct ndpi_flow_info *);
 
 
-
-
 /* If you need to instantiate the plugin's data structure, do it here */
 HogzillaData *hogzilla_ptr;
 HogzillaHBase *hbase;
 struct reader_hogzilla ndpi_info;
 
-//static u_int8_t undetected_flows_deletedd = 0; // TODO NOT USED
 static u_int16_t decode_tunnels = 0;
 #define SIZEOF_ID_STRUCT (sizeof(struct ndpi_id_struct))
 #define SIZEOF_FLOW_STRUCT (sizeof(struct ndpi_flow_struct))
@@ -675,39 +671,6 @@ static char* ipProto2Name(u_int16_t proto_id) {
     return(proto);
 }
 
-/* ***************************************************** */
-static u_int16_t node_guess_undetected_protocol(struct ndpi_flow_info *flow) {
-    flow->detected_protocol = ndpi_guess_undetected_protocol(ndpi_info.ndpi_struct,
-            flow->protocol,
-            ntohl(flow->src_ip),
-            ntohs(flow->src_port),
-            ntohl(flow->dst_ip),
-            ntohs(flow->dst_port));
-    // printf("Guess state: %u\n", flow->detected_protocol);
-    return(flow->detected_protocol.master_protocol);
-}
-/* ***************************************************** */
-static void node_proto_guess_walker(const void *node, ndpi_VISIT which, int depth, void *user_data) {
-    struct ndpi_flow_info *flow = *(struct ndpi_flow_info **) node;
-
-#if 0
-    printf("<%d>Walk on node %s (%p)\n",
-            depth,
-            which == preorder?"preorder":
-                    which == postorder?"postorder":
-                            which == endorder?"endorder":
-                                    which == leaf?"leaf": "unknown",
-                                            flow);
-#endif
-
-    if((which == ndpi_preorder) || (which == ndpi_leaf)) { /* Avoid walking the same node multiple times */
-        if(flow->detected_protocol.master_protocol == NDPI_PROTOCOL_UNKNOWN) {
-            node_guess_undetected_protocol(flow);
-        }
-
-    }
-}
-/* ***************************************************** */
 static void free_ndpi_flow(struct ndpi_flow_info *flow) {
     if(flow->ndpi_flow) { ndpi_free_flow(flow->ndpi_flow); flow->ndpi_flow = NULL; }
     if(flow->src_id)    { ndpi_free(flow->src_id); flow->src_id = NULL;       }
@@ -913,12 +876,6 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
 
     if((which == ndpi_preorder) || (which == ndpi_leaf)) { /* Avoid walking the same node multiple times */
         if(flow->last_seen + HOGZILLA_MAX_IDLE_TIME < ndpi_info.last_time) {
-
-            /* update stats */
-            // TODO DEBUG
-          //  node_proto_guess_walker(node, which, depth, user_data);
-//            if((flow->detected_protocol.master_protocol == NDPI_PROTOCOL_UNKNOWN) && !undetected_flows_deleted)
-//                undetected_flows_deleted = 1;
 
             /* adding to a queue (we can't delete it from the tree inline ) */
             ndpi_info.idle_flows[ndpi_info.num_idle_flows++] = flow;
