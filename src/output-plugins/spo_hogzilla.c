@@ -44,9 +44,11 @@
  *
  */
 
+#define HOGZILLA_LAB                    1
 
 #define HOGZILLA_MAX_NDPI_FLOWS         500000
 #define HOGZILLA_MAX_NDPI_PKT_PER_FLOW  500
+#define HOGZILLA_MAX_PACKETS            5000000
 #define HOGZILLA_MAX_IDLE_TIME          600000 /* 1000=1sec */
 #define IDLE_SCAN_PERIOD                10     /* 1000=1sec, 10 is set on original */
 #define NUM_ROOTS                       1024
@@ -405,6 +407,8 @@ HogzillaData *hogzilla_ptr;
 HogzillaHBase *hbase;
 struct reader_hogzilla ndpi_info;
 
+int datasettag=0;
+
 static u_int16_t decode_tunnels = 0;
 #define SIZEOF_ID_STRUCT (sizeof(struct ndpi_id_struct))
 #define SIZEOF_FLOW_STRUCT (sizeof(struct ndpi_flow_struct))
@@ -471,11 +475,11 @@ void check_hbase_open(){
     }
 }
 
-void scan_idle_flows(){
+void scan_idle_flows(int immediate){
 
     struct ndpi_flow_info *flow;
 
-    if(ndpi_info.last_idle_scan_time + IDLE_SCAN_PERIOD < ndpi_info.last_time) {
+    if(immediate==1 || ndpi_info.last_idle_scan_time + IDLE_SCAN_PERIOD < ndpi_info.last_time) {
             /* scan for idle flows */
             ndpi_twalk(ndpi_info.ndpi_flows_root[ndpi_info.idle_scan_idx], node_idle_scan_walker,NULL);
 
@@ -513,6 +517,17 @@ void scan_idle_flows(){
             ndpi_info.last_idle_scan_time = ndpi_info.last_time;
      }
 }
+
+void save_all_flows(){
+    int i;
+    printf("Saving all flows! Waiting some seconds...\n");
+    usleep(HOGZILLA_MAX_IDLE_TIME);
+    for(i=0;i<=NUM_ROOTS;i++){
+        printf("ROOT: %d \n",i);
+        scan_idle_flows(1);
+    }
+}
+
 /*
 void my_alarms(int sig) {
     scan_idle_flows();
@@ -1008,6 +1023,14 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
     flow.src_ip = iph->saddr, flow.dst_ip = iph->daddr;
     flow.src_port = htons(*sport), flow.dst_port = htons(*dport);
     flow.hashval = hashval = flow.protocol + flow.vlan_id + flow.src_ip + flow.dst_ip + flow.src_port + flow.dst_port;
+
+#ifdef HOGZILLA_LAB
+    if(flow.src_ip == 0 && flow.dst_ip == 0 && flow.src_port == 0 && flow.protocol == 17){
+        datasettag = flow.dst_port;
+        save_all_flows(); // XXX
+        return NULL;
+    }
+#endif
 
     idx = hashval % NUM_ROOTS;
     ret = ndpi_tfind(&flow, &ndpi_info.ndpi_flows_root[idx], node_cmp);
@@ -1766,12 +1789,12 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time1,
         }
     }
 
-    // 500 packets, save it into HBASE
-    if( flow->packets == HOGZILLA_MAX_NDPI_PKT_PER_FLOW) {
+    // X packets, save it into HBASE
+    if( flow->packets == HOGZILLA_MAX_PACKETS) {
         HogzillaSaveFlow(flow); /* save into  HBase */
     }
 
-    scan_idle_flows();
+    scan_idle_flows(0);
 
     return flow;
 }
@@ -3421,7 +3444,8 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
 
     // Packets
     int i;
-    for(i=0;i<flow->packets && i<sizeof(flow->inter_time);i++)
+    int maxpkt = ndpi_min(flow->packets,HOGZILLA_MAX_NDPI_PKT_PER_FLOW);
+    for(i=0;i< maxpkt && i<sizeof(flow->inter_time);i++)
     {
         char itime[10];
         char psize[10];
