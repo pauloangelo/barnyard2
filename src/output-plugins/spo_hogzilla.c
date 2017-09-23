@@ -1025,9 +1025,10 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
     flow.hashval = hashval = flow.protocol + flow.vlan_id + flow.src_ip + flow.dst_ip + flow.src_port + flow.dst_port;
 
 #ifdef HOGZILLA_LAB
-    if(flow.src_ip == 0 && flow.dst_ip == 0 && flow.src_port == 0 && flow.protocol == 17){
-        datasettag = flow.dst_port;
+    /* packit -m inject -t UDP -i eth0 -c 1 -v -s 1.1.1.1 -d 1.1.1.1 -S 1 -D 1 */
+    if(flow.src_ip == 16843009 && flow.dst_ip == 16843009 && flow.src_port == 1 && flow.protocol == 17){
         save_all_flows(); // XXX
+        datasettag = flow.dst_port;
         return NULL;
     }
 #endif
@@ -3379,6 +3380,16 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     c++;
 
 
+    // dataset
+    snprintf(text[c], textSize, "%d", datasettag);
+    mutation = g_object_new (TYPE_MUTATION, NULL);
+    mutation->column = g_byte_array_new ();
+    mutation->value  = g_byte_array_new ();
+    g_byte_array_append (mutation->column,(guint*) "flow:dataset", 12);
+    g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
+    g_ptr_array_add (mutations, mutation);
+    c++;
+
 
     // detected_protocol
     if(flow->detected_protocol.master_protocol && flow->detected_protocol.app_protocol!=NULL && flow->detected_protocol.app_protocol!=0) {
@@ -3425,6 +3436,7 @@ void Hogzilla_mutations(struct ndpi_flow_info *flow, GPtrArray * mutations) {
     g_byte_array_append (mutation->value ,(guint**) text[c], strlen(text[c]));
     g_ptr_array_add (mutations, mutation);
     c++;
+
 
     // detected_os
 
