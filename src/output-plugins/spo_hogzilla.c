@@ -1026,11 +1026,12 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
     flow.hashval = hashval = flow.protocol + flow.vlan_id + flow.src_ip + flow.dst_ip + flow.src_port + flow.dst_port;
 
 #ifdef HOGZILLA_LAB
-    /* packit -m inject -t UDP -i eth0 -c 1 -v -s 1.1.1.1 -d 1.1.1.1 -S 1 -D 1 */
-    if(flow.src_ip == 16843009 && flow.dst_ip == 16843009 && flow.src_port == 1 && flow.protocol == 17){
+    /* ip ro add 1.1.1.1 dev eth0
+     * packit -m inject -t UDP -i eth1 -c 1 -v -s 1.1.1.1 -d 1.1.1.1 -S 1 -D 2 -E '00:16:3e:8c:b3:63' */
+    if(flow.src_ip == 16843009 && flow.dst_ip == 16843009 && ntohs(flow.src_port) == 1 && flow.protocol == 17){
         immediate=1;
         save_all_flows(); // XXX
-        datasettag = flow.dst_port;
+        datasettag = ntohs(flow.dst_port);
         immediate=0;
         return NULL;
     }
