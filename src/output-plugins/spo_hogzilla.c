@@ -408,6 +408,7 @@ HogzillaHBase *hbase;
 struct reader_hogzilla ndpi_info;
 
 int datasettag=0;
+int immediate=0;
 
 static u_int16_t decode_tunnels = 0;
 #define SIZEOF_ID_STRUCT (sizeof(struct ndpi_id_struct))
@@ -475,7 +476,7 @@ void check_hbase_open(){
     }
 }
 
-void scan_idle_flows(int immediate){
+void scan_idle_flows(){
 
     struct ndpi_flow_info *flow;
 
@@ -524,7 +525,7 @@ void save_all_flows(){
     usleep(HOGZILLA_MAX_IDLE_TIME);
     for(i=0;i<=NUM_ROOTS;i++){
         printf("ROOT: %d \n",i);
-        scan_idle_flows(1);
+        scan_idle_flows();
     }
 }
 
@@ -890,7 +891,7 @@ static void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth,
     }
 
     if((which == ndpi_preorder) || (which == ndpi_leaf)) { /* Avoid walking the same node multiple times */
-        if(flow->last_seen + HOGZILLA_MAX_IDLE_TIME < ndpi_info.last_time) {
+        if(immediate==1 || flow->last_seen + HOGZILLA_MAX_IDLE_TIME < ndpi_info.last_time) {
 
             /* adding to a queue (we can't delete it from the tree inline ) */
             ndpi_info.idle_flows[ndpi_info.num_idle_flows++] = flow;
@@ -1027,8 +1028,10 @@ static struct ndpi_flow_info *get_ndpi_flow_info(
 #ifdef HOGZILLA_LAB
     /* packit -m inject -t UDP -i eth0 -c 1 -v -s 1.1.1.1 -d 1.1.1.1 -S 1 -D 1 */
     if(flow.src_ip == 16843009 && flow.dst_ip == 16843009 && flow.src_port == 1 && flow.protocol == 17){
+        immediate=1;
         save_all_flows(); // XXX
         datasettag = flow.dst_port;
+        immediate=0;
         return NULL;
     }
 #endif
@@ -1795,7 +1798,7 @@ static struct ndpi_flow_info *packet_processing( const u_int64_t time1,
         HogzillaSaveFlow(flow); /* save into  HBase */
     }
 
-    scan_idle_flows(0);
+    scan_idle_flows();
 
     return flow;
 }
